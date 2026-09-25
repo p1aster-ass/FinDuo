@@ -1,6 +1,18 @@
 ﻿.icon { width: 1.25rem; height: 1.25rem; flex-shrink: 0; vertical-align: middle; }
 .entry-screen, .dashboard { min-height: 100svh; background: radial-gradient(ellipse at 50% 35%, var(--glow), transparent 65%), var(--bg-primary); color: var(--text-primary); transition: background-color var(--transition), color var(--transition); }
+:root[data-theme='light'] .icon { color: var(--text-primary); }
+:root[data-theme='light'] .soon-tag,
+:root[data-theme='light'] .outline-badge { background: var(--glow); color: var(--text-primary); border-color: var(--border); }
 .entry-screen { display: flex; flex-direction: column; isolation: isolate; position: relative; overflow: hidden; }
+:root[data-theme='light'] .entry-screen {
+  background:
+    radial-gradient(ellipse at 80% 15%, var(--light-ambient), transparent 55%),
+    radial-gradient(ellipse at 10% 90%, var(--light-shade), transparent 60%),
+    var(--bg-main);
+  color: var(--text-main);
+}
+.entry-background { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+.entry-header, .entry-main, .entry-footer { position: relative; z-index: 1; }
 .entry-header, .entry-footer { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 .entry-header { padding-block: 1.65rem; }
 .brand { display: inline-flex; align-items: center; gap: 0.65rem; font-size: 1.55rem; font-weight: 800; letter-spacing: -0.07em; line-height: 1; }
@@ -12,8 +24,14 @@
 .theme-toggle .icon { z-index: 1; width: 1rem; height: 1rem; }
 .theme-toggle-thumb { position: absolute; top: 0.25rem; left: 0.25rem; width: 2rem; height: 2rem; border-radius: 50%; background: var(--primary); box-shadow: 0 2px 8px var(--shadow); transition: transform 250ms ease; }
 .theme-toggle[aria-checked='true'] .theme-toggle-thumb { transform: translateX(2.1rem); }
+.theme-toggle[aria-checked='false'] .icon:nth-child(2),
 .theme-toggle[aria-checked='true'] .icon:last-child { color: var(--text-on-button); }
-.ambient-orbit { position: absolute; z-index: -1; width: 58rem; height: 58rem; border: 1px solid var(--border); border-radius: 50%; pointer-events: none; opacity: 0.3; }
+.ambient-orbit { position: absolute; width: 58rem; height: 58rem; border: 1px solid var(--background-lines); border-radius: 50%; pointer-events: none; opacity: 0.3; }
+:root[data-theme='light'] .ambient-orbit {
+  border-color: var(--bg-lines-and-borders);
+  /* The color already includes alpha; keep the pattern visible. */
+  opacity: 1;
+}
 .orbit-one { top: 8rem; left: calc(50% - 29rem); }
 .orbit-two { top: 0; left: calc(50% - 37rem); width: 74rem; height: 74rem; }
 .entry-main { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 1.5rem 1.25rem 2.5rem; }
@@ -28,6 +46,46 @@
 .glass-panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: 0 24px 70px var(--shadow), inset 0 1px 0 var(--border); }
 @supports (backdrop-filter: blur(20px)) { .glass-panel { background: var(--glass); backdrop-filter: blur(20px); } }
 .auth-card { width: 100%; max-width: 28.5rem; padding: 1.75rem 2rem; animation: screen-in 550ms ease both; }
+:root[data-theme='light'] .auth-card {
+  background: linear-gradient(155deg, var(--bg-card) 40%, var(--light-card-end));
+  color: var(--text-main);
+  border-color: var(--bg-lines-and-borders);
+  box-shadow: var(--auth-card-shadow);
+  backdrop-filter: none;
+}
+:root[data-theme='light'] .auth-switch-indicator {
+  background: var(--light-deep);
+}
+:root[data-theme='light'] .auth-switch button[aria-pressed='true'] {
+  color: var(--light-on-deep);
+}
+:root[data-theme='light'] .brand-mark,
+:root[data-theme='light'] .auth-heading .section-icon {
+  background: var(--light-deep);
+  border-color: var(--light-deep);
+  box-shadow: 0 4px 12px var(--shadow);
+}
+:root[data-theme='light'] .brand-mark .icon,
+:root[data-theme='light'] .auth-heading .section-icon .icon {
+  color: var(--accent);
+}
+:root[data-theme='light'] .entry-intro h1 span {
+  color: var(--text-secondary);
+}
+:root[data-theme='light'] .provider-buttons .button {
+  background: var(--light-deep);
+  color: var(--light-on-deep);
+  border-color: var(--light-deep);
+}
+:root[data-theme='light'] .provider-buttons .icon {
+  color: var(--light-on-deep);
+}
+@media (hover: hover) {
+  :root[data-theme='light'] .provider-buttons .button:not(:disabled):hover {
+    background: var(--text-main);
+    border-color: var(--accent);
+  }
+}
 .auth-switch { position: relative; display: grid; grid-template-columns: 1fr 1fr; padding: 0.3rem; border-radius: 0.85rem; border: 1px solid var(--border); background: var(--field); }
 .auth-switch button { z-index: 1; min-height: 2.5rem; border: 0; background: transparent; cursor: pointer; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); }
 .auth-switch button[aria-pressed='true'] { color: var(--text-on-button); }

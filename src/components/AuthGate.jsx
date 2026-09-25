@@ -51,7 +51,10 @@ export default function AuthGate({ auth }) {
 
   return (
     <div className="entry-screen">
-      <div className="ambient-orbit orbit-one" aria-hidden="true" /><div className="ambient-orbit orbit-two" aria-hidden="true" />
+      <div className="entry-background" aria-hidden="true">
+        <div className="ambient-orbit orbit-one" />
+        <div className="ambient-orbit orbit-two" />
+      </div>
       <header className="entry-header page-container"><Brand /><ThemeToggle /></header>
       <main id="main-content" className="entry-main" tabIndex={-1}>
         <div className="entry-intro"><p className="eyebrow"><span className="status-dot" /> GOOD GAMES START WITH GOOD PEOPLE</p><h1>Find your duo.<br className="mobile-break" /> <span>Find your flow.</span></h1><p>Your game. Your vibe. Your next teammate.</p></div>

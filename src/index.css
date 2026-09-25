@@ -1,18 +1,26 @@
 ﻿:root {
-  --bg-primary: #1A1A1D;
-  --surface: #3B1C32;
-  --primary: #6A1E55;
-  --accent: #A64D79;
-  --text-primary: #FFFFFF;
-  --text-secondary: #FFFFFFB8;
-  --text-on-button: #FFFFFF;
+  /* Dark mode: the four brand colors in their original roles. */
+  --bg-main: #16110D;
+  --bg-card: #2C2018;
+  --text-main: #F4F1ED;
+  --accent: #FF6D00;
+  --bg-lines-and-borders: rgba(255, 109, 0, 0.35);
+
+  /* Shared component aliases follow the active theme's role mapping. */
+  --bg-primary: var(--bg-main);
+  --surface: var(--bg-card);
+  --primary: var(--accent);
+  --text-primary: var(--text-main);
+  --border: var(--bg-lines-and-borders);
+  --background-lines: var(--bg-lines-and-borders);
+  --text-secondary: #F4F1EDB8;
+  --text-on-button: #16110D;
   --button-fill: var(--accent);
-  --glass: #3B1C32B8;
-  --field: #1A1A1D99;
-  --border: #A64D7959;
-  --glow: #A64D7938;
-  --shadow: #1A1A1D80;
-  --focus: #FFFFFF;
+  --glass: #2C2018B8;
+  --field: #16110D99;
+  --glow: #FF6D0038;
+  --shadow: #16110D80;
+  --focus: #FF6D00;
   --radius-md: 0.875rem;
   --radius-lg: 1.75rem;
   --content-width: 78rem;
@@ -30,20 +38,28 @@
   -moz-osx-font-smoothing: grayscale;
 }
 :root[data-theme='light'] {
-  --bg-primary: #F5F5F5;
-  --surface: #F8E7F6;
-  --primary: #DD88CF;
-  --accent: #DD88CF;
-  --text-primary: #4B164C;
-  --text-secondary: #4B164CC7;
-  --text-on-button: #4B164C;
-  --button-fill: var(--primary);
-  --glass: #F8E7F6D9;
-  --field: #F5F5F540;
-  --border: #4B164C40;
-  --glow: #DD88CF29;
-  --shadow: #4B164C1A;
-  --focus: #4B164C;
+  /* Light mode: copper canvas, caramel surfaces, and dark-mode espresso accents. */
+  --bg-main: #C89570;
+  --bg-card: #EAC09B;
+  --text-main: #16110D;
+  --bg-lines-and-borders: rgba(44, 32, 24, 0.24);
+  --accent: #FF6D00;
+  --text-secondary: #3E281B;
+  --text-on-button: #16110D;
+  --button-fill: var(--accent);
+  --glass: var(--bg-card);
+  --field: #E0AD83;
+  --glow: rgba(255, 109, 0, 0.22);
+  --shadow: rgba(44, 32, 24, 0.2);
+  --auth-card-shadow: 0 28px 72px -16px rgba(44, 32, 24, 0.34),
+    0 6px 16px rgba(44, 32, 24, 0.1),
+    inset 0 1px 0 rgba(244, 241, 237, 0.3);
+  --light-deep: #2C2018;
+  --light-on-deep: #F4F1ED;
+  --light-card-end: #DDA77C;
+  --light-ambient: rgba(255, 109, 0, 0.22);
+  --light-shade: rgba(44, 32, 24, 0.14);
+  --focus: #16110D;
   color-scheme: light;
 }
 *, *::before, *::after { box-sizing: border-box; }
