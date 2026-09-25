@@ -38,7 +38,9 @@ export function scoreMatch(profile, player) {
   sharedComms.forEach((style) => reasons.push(COMM_BY_ID[style].label));
 
   return {
-    score: Math.round(gameScore + (sameRegion ? 25 : 0) + rankScore + commScore),
+    score: Math.round(
+      gameScore + (sameRegion ? 25 : 0) + rankScore + commScore,
+    ),
     sharedGames,
     rankGap,
     sameRegion,
@@ -60,12 +62,32 @@ export function initials(name) {
 export function profileStrength(profile) {
   const extras = [
     { done: Boolean(profile.bio?.trim()), weight: 15, tip: "Add a short bio" },
-    { done: profile.roles?.length > 0, weight: 15, tip: "Pick your favorite roles" },
-    { done: profile.availability?.length > 0, weight: 10, tip: "Share when you play" },
+    {
+      done: profile.roles?.length > 0,
+      weight: 15,
+      tip: "Pick your favorite roles",
+    },
+    {
+      done: profile.availability?.length > 0,
+      weight: 10,
+      tip: "Share when you play",
+    },
   ];
   return {
     percent:
-      60 + extras.reduce((total, item) => total + (item.done ? item.weight : 0), 0),
+      60 +
+      extras.reduce((total, item) => total + (item.done ? item.weight : 0), 0),
     tips: extras.filter((item) => !item.done).map((item) => item.tip),
   };
+}
+
+// Onboarding is done once the username and four required sections are filled in.
+export function isProfileComplete(profile) {
+  return Boolean(
+    profile?.username &&
+    profile.games?.length &&
+    profile.region &&
+    profile.rank &&
+    profile.commStyles?.length,
+  );
 }

@@ -1,20 +1,27 @@
 import Icon from "./Icon.jsx";
 import PlayerAvatar from "./PlayerAvatar.jsx";
+import { backend } from "../api/backend.js";
 import { REGION_BY_ID } from "../data/options.js";
 import { profileStrength } from "../lib/match.js";
 
+// `matches` ([{ player, match }]) and the message counts stay empty until the
+// discovery and messaging backends exist.
 export default function Overview({
   user,
   profile,
-  matches,
-  unread,
-  chatCount,
+  matches = [],
+  unread = 0,
+  chatCount = 0,
   onNavigate,
   onMessage,
 }) {
   const strongMatches = matches.filter(({ match }) => match.score >= 60);
   const strength = profileStrength(profile);
   const region = REGION_BY_ID[profile.region]?.label;
+  let messageStat = "Not live yet";
+  if (backend.messaging) {
+    messageStat = unread > 0 ? `${unread} unread` : `${chatCount} chats`;
+  }
 
   const features = [
     {
@@ -22,7 +29,9 @@ export default function Overview({
       icon: "users",
       title: "Your kind of teammates",
       text: "Find players who fit your playstyle and make every session count.",
-      stat: `${strongMatches.length} strong matches`,
+      stat: backend.discovery
+        ? `${strongMatches.length} strong matches`
+        : "Not live yet",
     },
     {
       view: "profile",
@@ -36,7 +45,7 @@ export default function Overview({
       icon: "chat",
       title: "From matched to queued",
       text: "Plan your next session and keep the conversation going.",
-      stat: unread > 0 ? `${unread} unread` : `${chatCount} chats`,
+      stat: messageStat,
     },
   ];
 
@@ -83,8 +92,9 @@ export default function Overview({
             </button>
           </div>
           <p className="hero-note">
-            {strongMatches.length} players in the pool are a strong fit for
-            you{region ? ` · ${region}` : ""}.
+            {backend.discovery
+              ? `${strongMatches.length} players in the pool are a strong fit for you${region ? ` · ${region}` : ""}.`
+              : "Player discovery is almost here. Your profile is ready for it."}
           </p>
         </div>
         <div className="duo-art" aria-hidden="true">
@@ -99,41 +109,43 @@ export default function Overview({
         </div>
       </section>
 
-      <section className="top-matches" aria-labelledby="top-matches-title">
-        <div className="hub-section-head">
-          <h2 id="top-matches-title">Top matches for you</h2>
-          <button
-            type="button"
-            className="text-button"
-            onClick={() => onNavigate("discover")}
-          >
-            See all players
-          </button>
-        </div>
-        <ul className="top-match-list">
-          {matches.slice(0, 3).map(({ player, match }) => (
-            <li key={player.id} className="top-match glass-panel">
-              <PlayerAvatar name={player.name} online={player.online} />
-              <div className="top-match-copy">
-                <p className="top-match-name">{player.name}</p>
-                <p className="top-match-meta">
-                  {player.rank} · {REGION_BY_ID[player.region].label}
-                </p>
-              </div>
-              <span className="match-score-chip">{match.score}%</span>
-              <button
-                type="button"
-                className="icon-button"
-                onClick={() => onMessage(player.id)}
-                aria-label={`Message ${player.name}`}
-                title={`Message ${player.name}`}
-              >
-                <Icon name="chat" />
-              </button>
-            </li>
-          ))}
-        </ul>
-      </section>
+      {matches.length > 0 && (
+        <section className="top-matches" aria-labelledby="top-matches-title">
+          <div className="hub-section-head">
+            <h2 id="top-matches-title">Top matches for you</h2>
+            <button
+              type="button"
+              className="text-button"
+              onClick={() => onNavigate("discover")}
+            >
+              See all players
+            </button>
+          </div>
+          <ul className="top-match-list">
+            {matches.slice(0, 3).map(({ player, match }) => (
+              <li key={player.id} className="top-match glass-panel">
+                <PlayerAvatar name={player.name} online={player.online} />
+                <div className="top-match-copy">
+                  <p className="top-match-name">{player.name}</p>
+                  <p className="top-match-meta">
+                    {player.rank} · {REGION_BY_ID[player.region].label}
+                  </p>
+                </div>
+                <span className="match-score-chip">{match.score}%</span>
+                <button
+                  type="button"
+                  className="icon-button"
+                  onClick={() => onMessage(player.id)}
+                  aria-label={`Message ${player.name}`}
+                  title={`Message ${player.name}`}
+                >
+                  <Icon name="chat" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="feature-grid" aria-label="Your player hub">
         {features.map((item) => (

@@ -30,7 +30,7 @@
 }
 .ob-progress {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 0.6rem;
   margin: 0 0 0.5rem;
   padding: 0;
@@ -160,6 +160,14 @@
   margin-top: 1rem;
   color: var(--text-secondary);
   font-size: 0.75rem;
+}
+
+.username-field {
+  max-width: 26rem;
+}
+.username-at {
+  color: var(--text-secondary);
+  font-weight: 700;
 }
 
 /* Shared transitions for every selectable control */
@@ -488,6 +496,10 @@
   min-height: 1.3em;
   color: var(--text-secondary);
   font-size: 0.8rem;
+}
+.ob-status.is-error {
+  color: var(--text-primary);
+  font-weight: 650;
 }
 
 @keyframes ob-glow {

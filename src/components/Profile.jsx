@@ -35,27 +35,73 @@ function DetailCard({ title, icon, empty, children }) {
   );
 }
 
-function ProfileEditor({ user, profile, onSave, onCancel }) {
+function ProfileEditor({
+  user,
+  profile,
+  onSave,
+  onUpdateDisplayName,
+  onCancel,
+}) {
   const [displayName, setDisplayName] = useState(user.displayName);
+  const [nameError, setNameError] = useState("");
+  const [saveError, setSaveError] = useState("");
+  const [usernameRejection, setUsernameRejection] = useState(null);
+  const [saving, setSaving] = useState(false);
   const [bio, setBio] = useState(profile.bio ?? "");
   const [roles, setRoles] = useState(profile.roles ?? []);
   const [availability, setAvailability] = useState(profile.availability ?? []);
 
+  // The display name lives on the Neon account; the rest goes to the profiles table.
+  async function submit(gaming) {
+    const name = displayName.trim();
+    if (!name) {
+      setNameError("Enter a display name.");
+      document.getElementById("profile-name")?.focus();
+      return;
+    }
+    setSaving(true);
+    setNameError("");
+    setSaveError("");
+    try {
+      if (name !== user.displayName) await onUpdateDisplayName(name);
+    } catch (error) {
+      setNameError(error.message);
+      setSaving(false);
+      return;
+    }
+    try {
+      await onSave({
+        ...profile,
+        ...gaming,
+        displayName: name,
+        bio: bio.trim(),
+        roles,
+        availability,
+      });
+    } catch (error) {
+      setSaving(false);
+      if (error.field === "username") {
+        setUsernameRejection({
+          username: gaming.username,
+          message: error.message,
+        });
+        document.getElementById("ob-username-input")?.focus();
+        return;
+      }
+      setSaveError(error.message);
+    }
+  }
+
   return (
     <ProfileForm
       initialProfile={profile}
-      submitLabel="Save changes"
+      suggestedName={user.displayName}
+      usernameRejection={usernameRejection}
+      submitLabel={saving ? "Saving…" : "Save changes"}
+      submitting={saving}
+      error={saveError}
       onCancel={onCancel}
-      onSubmit={(gaming) =>
-        onSave({
-          ...profile,
-          ...gaming,
-          displayName: displayName.trim() || user.displayName,
-          bio: bio.trim(),
-          roles,
-          availability,
-        })
-      }
+      onSubmit={submit}
     >
       <Section
         id="about"
@@ -71,11 +117,18 @@ function ProfileEditor({ user, profile, onSave, onCancel }) {
               <input
                 id="profile-name"
                 value={displayName}
-                maxLength={24}
+                maxLength={32}
                 autoComplete="nickname"
+                aria-invalid={Boolean(nameError)}
+                aria-describedby={nameError ? "profile-name-error" : undefined}
                 onChange={(event) => setDisplayName(event.target.value)}
               />
             </div>
+            {nameError && (
+              <p id="profile-name-error" className="field-error" role="alert">
+                {nameError}
+              </p>
+            )}
           </div>
           <div className="form-field">
             <label htmlFor="profile-bio">Bio</label>
@@ -134,7 +187,12 @@ function ProfileEditor({ user, profile, onSave, onCancel }) {
   );
 }
 
-export default function Profile({ user, profile, onSave }) {
+export default function Profile({
+  user,
+  profile,
+  onSave,
+  onUpdateDisplayName,
+}) {
   const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState(false);
   const strength = profileStrength(profile);
@@ -146,8 +204,8 @@ export default function Profile({ user, profile, onSave }) {
     window.scrollTo(0, 0);
   }
 
-  function save(next) {
-    onSave(next);
+  async function save(next) {
+    await onSave(next);
     setEditing(false);
     setSaved(true);
     window.scrollTo(0, 0);
@@ -168,6 +226,7 @@ export default function Profile({ user, profile, onSave }) {
           user={user}
           profile={profile}
           onSave={save}
+          onUpdateDisplayName={onUpdateDisplayName}
           onCancel={() => setEditing(false)}
         />
       </>
@@ -192,10 +251,18 @@ export default function Profile({ user, profile, onSave }) {
         </p>
       </div>
 
-      <section className="profile-hero glass-panel" aria-labelledby="profile-name-title">
+      <section
+        className="profile-hero glass-panel"
+        aria-labelledby="profile-name-title"
+      >
         <PlayerAvatar name={user.displayName} size="xl" variant="solid" />
         <div className="profile-hero-copy">
-          <h2 id="profile-name-title">{user.displayName}</h2>
+          <div>
+            <h2 id="profile-name-title">{user.displayName}</h2>
+            {profile.username && (
+              <p className="profile-username">@{profile.username}</p>
+            )}
+          </div>
           <div className="player-meta">
             <span className="meta-chip">
               <RankEmblem level={rankLevel} />
@@ -207,16 +274,24 @@ export default function Profile({ user, profile, onSave }) {
             </span>
           </div>
           <p className={profile.bio ? "profile-bio" : "profile-bio is-empty"}>
-            {profile.bio || "No bio yet. Tell other players what you bring to the squad."}
+            {profile.bio ||
+              "No bio yet. Tell other players what you bring to the squad."}
           </p>
         </div>
-        <button type="button" className="button button-primary" onClick={openEditor}>
+        <button
+          type="button"
+          className="button button-primary"
+          onClick={openEditor}
+        >
           <Icon name="edit" />
           Edit profile
         </button>
       </section>
 
-      <section className="strength-card glass-panel" aria-labelledby="strength-title">
+      <section
+        className="strength-card glass-panel"
+        aria-labelledby="strength-title"
+      >
         <div className="strength-top">
           <h2 id="strength-title">Profile strength</h2>
           <span className="strength-value">{strength.percent}%</span>
@@ -237,7 +312,11 @@ export default function Profile({ user, profile, onSave }) {
             <ul>
               {strength.tips.map((tip) => (
                 <li key={tip}>
-                  <button type="button" className="text-button" onClick={openEditor}>
+                  <button
+                    type="button"
+                    className="text-button"
+                    onClick={openEditor}
+                  >
                     {tip}
                   </button>
                 </li>
@@ -258,8 +337,12 @@ export default function Profile({ user, profile, onSave }) {
               <li key={id}>
                 <span className="profile-game-tag">{GAME_BY_ID[id].tag}</span>
                 <span>
-                  <span className="profile-game-name">{GAME_BY_ID[id].name}</span>
-                  <span className="profile-game-genre">{GAME_BY_ID[id].genre}</span>
+                  <span className="profile-game-name">
+                    {GAME_BY_ID[id].name}
+                  </span>
+                  <span className="profile-game-genre">
+                    {GAME_BY_ID[id].genre}
+                  </span>
                 </span>
               </li>
             ))}
@@ -275,7 +358,11 @@ export default function Profile({ user, profile, onSave }) {
             ))}
           </ul>
         </DetailCard>
-        <DetailCard title="Favorite roles" icon="trophy" empty="No roles picked yet.">
+        <DetailCard
+          title="Favorite roles"
+          icon="trophy"
+          empty="No roles picked yet."
+        >
           {profile.roles?.length > 0 && (
             <ul className="tag-list">
               {profile.roles.map((role) => (
@@ -286,7 +373,11 @@ export default function Profile({ user, profile, onSave }) {
             </ul>
           )}
         </DetailCard>
-        <DetailCard title="When you play" icon="calendar" empty="Add when you usually play.">
+        <DetailCard
+          title="When you play"
+          icon="calendar"
+          empty="Add when you usually play."
+        >
           {profile.availability?.length > 0 && (
             <ul className="tag-list">
               {profile.availability.map((id) => (

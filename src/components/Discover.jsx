@@ -1,5 +1,6 @@
 import { useState } from "react";
 import Icon from "./Icon.jsx";
+import NotLiveYet from "./NotLiveYet.jsx";
 import PlayerAvatar from "./PlayerAvatar.jsx";
 import { RankEmblem } from "./ProfileForm.jsx";
 import {
@@ -81,42 +82,61 @@ function PlayerCard({ player, match, invited, onInvite, onMessage }) {
         </p>
       )}
 
-      <div className="player-actions">
-        <button
-          type="button"
-          className="button button-primary"
-          onClick={() => onInvite(player.id)}
-          disabled={invited}
-        >
-          {invited ? (
-            <>
-              <Icon name="check" />
-              Invite sent
-            </>
-          ) : (
-            <>
-              <Icon name="duo" />
-              Invite to duo
-            </>
-          )}
-        </button>
-        <button
-          type="button"
-          className="button button-secondary"
-          onClick={() => onMessage(player.id)}
-        >
-          <Icon name="chat" />
-          Message
-        </button>
-      </div>
+      {(onInvite || onMessage) && (
+        <div className="player-actions">
+          <button
+            type="button"
+            className="button button-primary"
+            onClick={() => onInvite(player.id)}
+            disabled={invited}
+          >
+            {invited ? (
+              <>
+                <Icon name="check" />
+                Invite sent
+              </>
+            ) : (
+              <>
+                <Icon name="duo" />
+                Invite to duo
+              </>
+            )}
+          </button>
+          <button
+            type="button"
+            className="button button-secondary"
+            onClick={() => onMessage(player.id)}
+          >
+            <Icon name="chat" />
+            Message
+          </button>
+        </div>
+      )}
     </article>
   );
 }
 
+const heading = (
+  <div className="dashboard-heading">
+    <div>
+      <p className="eyebrow">FIND PLAYERS</p>
+      <h1>
+        Your kind of teammates<span className="brand-period">.</span>
+      </h1>
+      <p className="page-lede">
+        Ranked by how well they fit your games, region, rank, and comm style.
+      </p>
+    </div>
+  </div>
+);
+
+// `matches` is [{ player, match }] from scoreMatch(); it stays empty until the
+// discovery backend exists.
 export default function Discover({
   profile,
-  matches,
-  invited,
+  available,
+  matches = [],
+  invited = new Set(),
   onInvite,
   onMessage,
 }) {
@@ -149,6 +169,36 @@ export default function Discover({
     { label: "Online now", on: onlineOnly, set: setOnlineOnly, icon: "spark" },
   ];
 
+  if (!available) {
+    return (
+      <>
+        {heading}
+        <NotLiveYet icon="users" title="Player discovery is on its way">
+          <p>
+            Once it’s live, you’ll see players ranked by how well they match
+            what you told us:
+          </p>
+          <ul className="tag-list not-live-tags">
+            {profile.games.map((id) => (
+              <li key={id} className="tag is-shared">
+                {GAME_BY_ID[id].name}
+              </li>
+            ))}
+            <li className="tag is-shared">
+              {REGION_BY_ID[profile.region].label}
+            </li>
+            <li className="tag is-shared">{profile.rank}</li>
+            {profile.commStyles.map((id) => (
+              <li key={id} className="tag is-shared">
+                {COMM_BY_ID[id].label}
+              </li>
+            ))}
+          </ul>
+        </NotLiveYet>
+      </>
+    );
+  }
+
   function resetFilters() {
     setGame("all");
     setSameRegion(false);
@@ -159,18 +209,7 @@ export default function Discover({
 
   return (
     <>
-      <div className="dashboard-heading">
-        <div>
-          <p className="eyebrow">FIND PLAYERS</p>
-          <h1>
-            Your kind of teammates<span className="brand-period">.</span>
-          </h1>
-          <p className="page-lede">
-            Ranked by how well they fit your games, region, rank, and comm
-            style.
-          </p>
-        </div>
-      </div>
+      {heading}
 
       <section className="filter-bar glass-panel" aria-label="Filter players">
         <div className="input-wrap filter-search">

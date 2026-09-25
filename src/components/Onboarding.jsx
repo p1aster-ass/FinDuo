@@ -1,13 +1,33 @@
+import { useState } from "react";
 import Brand from "./Brand.jsx";
 import Icon from "./Icon.jsx";
 import ProfileForm from "./ProfileForm.jsx";
 import ThemeToggle from "./ThemeToggle.jsx";
 
 // Shares the sign-in screen's shell so the first two steps feel like one flow.
-export default function Onboarding({ user, onComplete }) {
-  function complete(profile) {
-    window.scrollTo(0, 0);
-    onComplete(profile);
+export default function Onboarding({ user, initialProfile, onComplete }) {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [usernameRejection, setUsernameRejection] = useState(null);
+
+  async function complete(profile) {
+    setSaving(true);
+    setError("");
+    try {
+      await onComplete(profile);
+      window.scrollTo(0, 0);
+    } catch (saveError) {
+      setSaving(false);
+      if (saveError.field === "username") {
+        setUsernameRejection({
+          username: profile.username,
+          message: saveError.message,
+        });
+        document.getElementById("ob-username-input")?.focus();
+        return;
+      }
+      setError(saveError.message);
+    }
   }
 
   return (
@@ -35,8 +55,13 @@ export default function Onboarding({ user, onComplete }) {
           </p>
         </div>
         <ProfileForm
+          initialProfile={initialProfile}
+          suggestedName={user?.displayName}
+          usernameRejection={usernameRejection}
           showProgress
-          submitLabel="Complete Profile"
+          submitLabel={saving ? "Saving…" : "Complete Profile"}
+          submitting={saving}
+          error={error}
           onSubmit={complete}
         />
         <p className="entry-caption ob-caption">

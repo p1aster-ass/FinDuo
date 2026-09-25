@@ -711,6 +711,14 @@
   place-items: center;
   min-height: 100svh;
 }
+.status-message {
+  display: grid;
+  justify-items: center;
+  gap: 1rem;
+  max-width: 28rem;
+  padding: 1.5rem;
+  text-align: center;
+}
 @keyframes screen-in {
   from {
     opacity: 0;

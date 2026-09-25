@@ -12,6 +12,12 @@ dist/
 dist-ssr
 *.local
 
+# Local Neon context and environment secrets
+.neon
+.env
+.env.*
+!.env.example
+
 # Editor directories and files
 .history/
 .vscode/*

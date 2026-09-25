@@ -1,6 +1,12 @@
 import { useState } from "react";
 import Icon from "./Icon.jsx";
 import { COMM_STYLES, GAMES, RANKS, REGIONS } from "../data/options.js";
+import {
+  normalizeUsername,
+  suggestUsername,
+  USERNAME_MAX,
+  usernameError,
+} from "../lib/username.js";
 import "./ProfileForm.css";
 
 export function Section({
@@ -49,22 +55,42 @@ function toggleComm(current, style) {
     : [...current.filter((id) => id !== style.excludes), style.id];
 }
 
-// The four gaming-preference sections, shared by onboarding and profile editing.
+// Username plus the four gaming-preference sections, shared by onboarding and
+// profile editing. `usernameRejection` ({ username, message }) shows a
+// server-side problem, like a taken username, until that name is changed.
 export default function ProfileForm({
   initialProfile,
+  suggestedName = "",
+  usernameRejection = null,
   submitLabel,
   onSubmit,
   onCancel,
+  submitting = false,
+  error = "",
   showProgress = false,
   children,
 }) {
+  const [username, setUsername] = useState(
+    () => initialProfile?.username || suggestUsername(suggestedName),
+  );
   const [games, setGames] = useState(initialProfile?.games ?? []);
   const [region, setRegion] = useState(initialProfile?.region ?? "");
   const [rank, setRank] = useState(initialProfile?.rank ?? "");
   const [comms, setComms] = useState(initialProfile?.commStyles ?? []);
   const [showErrors, setShowErrors] = useState(false);
 
+  const usernameProblem = usernameError(username);
+  const rejected =
+    usernameRejection?.username === normalizeUsername(username)
+      ? usernameRejection.message
+      : "";
+  const usernameMessage = rejected || (showErrors && usernameProblem) || "";
   const steps = [
+    {
+      key: "username",
+      label: "Username",
+      done: !usernameProblem && !rejected,
+    },
     { key: "games", label: "Games", done: games.length > 0 },
     { key: "region", label: "Region", done: Boolean(region) },
     { key: "rank", label: "Rank", done: Boolean(rank) },
@@ -74,6 +100,10 @@ export default function ProfileForm({
   const isComplete = completed === steps.length;
   const missing = steps.filter((step) => !step.done).map((step) => step.label);
   const rankIndex = RANKS.indexOf(rank);
+  let statusText = `Finish all ${steps.length} sections to continue.`;
+  if (error) statusText = error;
+  else if (isComplete) statusText = "All set. You’re ready to find your duo.";
+  else if (showErrors) statusText = `Still needed: ${missing.join(", ")}.`;
   const errorFor = (key) =>
     showErrors && !steps.find((step) => step.key === key).done;
 
@@ -87,6 +117,7 @@ export default function ProfileForm({
 
   function handleSubmit(event) {
     event.preventDefault();
+    if (submitting) return;
     if (!isComplete) {
       setShowErrors(true);
       const firstMissing = document.getElementById(
@@ -96,7 +127,13 @@ export default function ProfileForm({
       firstMissing?.focus({ preventScroll: true });
       return;
     }
-    onSubmit({ games, region, rank, commStyles: comms });
+    onSubmit({
+      username: normalizeUsername(username),
+      games,
+      region,
+      rank,
+      commStyles: comms,
+    });
   }
 
   return (
@@ -104,7 +141,7 @@ export default function ProfileForm({
       {showProgress && (
         <ol
           className="ob-progress"
-          aria-label={`${completed} of 4 sections complete`}
+          aria-label={`${completed} of ${steps.length} sections complete`}
         >
           {steps.map((step) => (
             <li key={step.key} className={step.done ? "is-done" : ""}>
@@ -120,8 +157,41 @@ export default function ProfileForm({
       {children}
 
       <Section
-        id="games"
+        id="username"
         index={1}
+        title="Choose your username"
+        hint="Your unique handle. 3–20 letters, numbers, or underscores."
+        done={!usernameProblem && !rejected}
+        error={usernameMessage}
+      >
+        <div className="form-field username-field">
+          <label htmlFor="ob-username-input" className="visually-hidden">
+            Username
+          </label>
+          <div className="input-wrap">
+            <span className="username-at" aria-hidden="true">
+              @
+            </span>
+            <input
+              id="ob-username-input"
+              value={username}
+              maxLength={USERNAME_MAX}
+              autoComplete="username"
+              autoCapitalize="none"
+              spellCheck={false}
+              aria-describedby="ob-username-hint"
+              aria-invalid={Boolean(usernameMessage)}
+              onChange={(event) =>
+                setUsername(event.target.value.toLowerCase())
+              }
+            />
+          </div>
+        </div>
+      </Section>
+
+      <Section
+        id="games"
+        index={2}
         title="Select your games"
         hint="Pick every game you want to find teammates for."
         meta={games.length > 0 ? `${games.length} selected` : null}
@@ -158,7 +228,7 @@ export default function ProfileForm({
 
       <Section
         id="region"
-        index={2}
+        index={3}
         title="Server region"
         hint="Where you queue most. We match you with players on low-ping servers."
         done={Boolean(region)}
@@ -194,7 +264,7 @@ export default function ProfileForm({
 
       <Section
         id="rank"
-        index={3}
+        index={4}
         title="Current rank"
         hint="Your usual skill tier. You can change it later."
         meta={rank ? `Tier ${rankIndex + 1} of ${RANKS.length}` : null}
@@ -239,7 +309,7 @@ export default function ProfileForm({
 
       <Section
         id="comms"
-        index={4}
+        index={5}
         title="Preferred comm style"
         hint="How you like to talk (or not) in-game. Pick any that apply."
         done={comms.length > 0}
@@ -267,7 +337,7 @@ export default function ProfileForm({
 
       <div className="ob-submit glass-panel">
         <p className="ob-submit-count">
-          <strong>{completed}</strong> of 4 sections complete
+          <strong>{completed}</strong> of {steps.length} sections complete
         </p>
         <div className="ob-submit-actions">
           {onCancel && (
@@ -283,17 +353,18 @@ export default function ProfileForm({
             type="submit"
             className={`button button-primary ob-cta${isComplete ? " is-ready" : ""}`}
             aria-describedby="ob-status"
+            disabled={submitting}
           >
             {submitLabel}
             <Icon name="arrow" />
           </button>
         </div>
-        <p id="ob-status" className="ob-status" role="status">
-          {isComplete
-            ? "All set. You’re ready to find your duo."
-            : showErrors
-              ? `Still needed: ${missing.join(", ")}.`
-              : "Finish all four sections to continue."}
+        <p
+          id="ob-status"
+          className={`ob-status${error ? " is-error" : ""}`}
+          role={error ? "alert" : "status"}
+        >
+          {statusText}
         </p>
       </div>
     </form>

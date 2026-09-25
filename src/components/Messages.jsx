@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import Icon from "./Icon.jsx";
 import PlayerAvatar from "./PlayerAvatar.jsx";
 import { GAME_BY_ID, REGION_BY_ID } from "../data/options.js";
-import { PLAYER_BY_ID } from "../data/mockPlayers.js";
+import NotLiveYet from "./NotLiveYet.jsx";
 
 const timeFormat = new Intl.DateTimeFormat(undefined, {
   hour: "numeric",
@@ -110,7 +110,10 @@ function SessionPlanner({ games, onCancel, onSubmit }) {
       <div className="session-fields">
         <label>
           Game
-          <select value={game} onChange={(event) => setGame(event.target.value)}>
+          <select
+            value={game}
+            onChange={(event) => setGame(event.target.value)}
+          >
             {games.map((id) => (
               <option key={id} value={id}>
                 {GAME_BY_ID[id].name}
@@ -139,7 +142,11 @@ function SessionPlanner({ games, onCancel, onSubmit }) {
         </label>
       </div>
       <div className="session-actions">
-        <button type="button" className="button button-secondary" onClick={onCancel}>
+        <button
+          type="button"
+          className="button button-secondary"
+          onClick={onCancel}
+        >
           Cancel
         </button>
         <button type="submit" className="button button-primary">
@@ -151,8 +158,15 @@ function SessionPlanner({ games, onCancel, onSubmit }) {
   );
 }
 
-function Thread({ conversation, typing, profile, onBack, onSend, onPlanSession }) {
-  const player = PLAYER_BY_ID[conversation.playerId];
+function Thread({
+  conversation,
+  typing,
+  profile,
+  onBack,
+  onSend,
+  onPlanSession,
+}) {
+  const { player } = conversation;
   const [draft, setDraft] = useState("");
   const [planning, setPlanning] = useState(false);
   const listRef = useRef(null);
@@ -201,7 +215,11 @@ function Thread({ conversation, typing, profile, onBack, onSend, onPlanSession }
         </button>
       </header>
 
-      <ol className="chat-messages" ref={listRef} aria-label={`Conversation with ${player.name}`}>
+      <ol
+        className="chat-messages"
+        ref={listRef}
+        aria-label={`Conversation with ${player.name}`}
+      >
         {conversation.messages.map((message) => (
           <MessageItem key={message.id} message={message} />
         ))}
@@ -250,11 +268,14 @@ function Thread({ conversation, typing, profile, onBack, onSend, onPlanSession }
   );
 }
 
+// Each conversation is { playerId, player, unread, messages }; the list stays
+// empty until the messaging backend exists.
 export default function Messages({
   profile,
-  conversations,
+  available,
+  conversations = [],
+  typing = {},
   activeId,
-  typing,
   onSelect,
   onBack,
   onSend,
@@ -262,20 +283,37 @@ export default function Messages({
   onFindPlayers,
 }) {
   const active = conversations.find((chat) => chat.playerId === activeId);
+  const heading = (
+    <div className="dashboard-heading">
+      <div>
+        <p className="eyebrow">MESSAGES</p>
+        <h1>
+          From matched to queued<span className="brand-period">.</span>
+        </h1>
+        <p className="page-lede">
+          Chat with your matches and lock in your next session.
+        </p>
+      </div>
+    </div>
+  );
+
+  if (!available) {
+    return (
+      <>
+        {heading}
+        <NotLiveYet icon="chat" title="Messaging is on its way">
+          <p>
+            Soon you’ll be able to chat with your matches, send duo invites, and
+            plan sessions together, all from here.
+          </p>
+        </NotLiveYet>
+      </>
+    );
+  }
 
   return (
     <>
-      <div className="dashboard-heading">
-        <div>
-          <p className="eyebrow">MESSAGES</p>
-          <h1>
-            From matched to queued<span className="brand-period">.</span>
-          </h1>
-          <p className="page-lede">
-            Chat with your matches and lock in your next session.
-          </p>
-        </div>
-      </div>
+      {heading}
 
       <div className={`chat-layout glass-panel${active ? " has-active" : ""}`}>
         <nav className="chat-list" aria-label="Conversations">
@@ -284,14 +322,16 @@ export default function Messages({
           ) : (
             <ul>
               {conversations.map((chat) => {
-                const player = PLAYER_BY_ID[chat.playerId];
+                const { player } = chat;
                 const last = chat.messages.at(-1);
                 return (
                   <li key={chat.playerId}>
                     <button
                       type="button"
                       className="chat-list-item"
-                      aria-current={chat.playerId === activeId ? "true" : undefined}
+                      aria-current={
+                        chat.playerId === activeId ? "true" : undefined
+                      }
                       onClick={() => onSelect(chat.playerId)}
                     >
                       <PlayerAvatar name={player.name} online={player.online} />
