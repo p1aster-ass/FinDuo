@@ -1,9 +1,9 @@
 ﻿:root {
   /* Dark mode: the four brand colors in their original roles. */
-  --bg-main: #16110D;
-  --bg-card: #2C2018;
-  --text-main: #F4F1ED;
-  --accent: #FF6D00;
+  --bg-main: #16110d;
+  --bg-card: #2c2018;
+  --text-main: #f4f1ed;
+  --accent: #ff6d00;
   --bg-lines-and-borders: rgba(255, 109, 0, 0.35);
 
   /* Shared component aliases follow the active theme's role mapping. */
@@ -13,21 +13,26 @@
   --text-primary: var(--text-main);
   --border: var(--bg-lines-and-borders);
   --background-lines: var(--bg-lines-and-borders);
-  --text-secondary: #F4F1EDB8;
-  --text-on-button: #16110D;
+  --text-secondary: #f4f1edb8;
+  --text-on-button: #16110d;
   --button-fill: var(--accent);
-  --glass: #2C2018B8;
-  --field: #16110D99;
-  --glow: #FF6D0038;
-  --shadow: #16110D80;
-  --focus: #FF6D00;
+  --glass: #2c2018b8;
+  --field: #16110d99;
+  --glow: #ff6d0038;
+  --shadow: #16110d80;
+  --focus: #ff6d00;
   --radius-md: 0.875rem;
   --radius-lg: 1.75rem;
   --content-width: 78rem;
   --page-gutter: clamp(1.25rem, 4vw, 3rem);
   --transition: 200ms ease;
   color-scheme: dark;
-  font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family:
+    "Segoe UI",
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
   font-size: 16px;
   line-height: 1.6;
   color: var(--text-primary);
@@ -37,45 +42,84 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
-:root[data-theme='light'] {
+:root[data-theme="light"] {
   /* Light mode: copper canvas, caramel surfaces, and dark-mode espresso accents. */
-  --bg-main: #C89570;
-  --bg-card: #EAC09B;
-  --text-main: #16110D;
+  --bg-main: #c89570;
+  --bg-card: #eac09b;
+  --text-main: #16110d;
   --bg-lines-and-borders: rgba(44, 32, 24, 0.24);
-  --accent: #FF6D00;
-  --text-secondary: #3E281B;
-  --text-on-button: #16110D;
+  --accent: #ff6d00;
+  --text-secondary: #3e281b;
+  --text-on-button: #16110d;
   --button-fill: var(--accent);
   --glass: var(--bg-card);
-  --field: #E0AD83;
+  --field: #e0ad83;
   --glow: rgba(255, 109, 0, 0.22);
   --shadow: rgba(44, 32, 24, 0.2);
-  --auth-card-shadow: 0 28px 72px -16px rgba(44, 32, 24, 0.34),
-    0 6px 16px rgba(44, 32, 24, 0.1),
+  --auth-card-shadow:
+    0 28px 72px -16px rgba(44, 32, 24, 0.34), 0 6px 16px rgba(44, 32, 24, 0.1),
     inset 0 1px 0 rgba(244, 241, 237, 0.3);
-  --light-deep: #2C2018;
-  --light-on-deep: #F4F1ED;
-  --light-card-end: #DDA77C;
+  --light-deep: #2c2018;
+  --light-on-deep: #f4f1ed;
+  --light-card-end: #dda77c;
   --light-ambient: rgba(255, 109, 0, 0.22);
   --light-shade: rgba(44, 32, 24, 0.14);
-  --focus: #16110D;
+  --focus: #16110d;
   color-scheme: light;
 }
-*, *::before, *::after { box-sizing: border-box; }
-body { margin: 0; min-width: 320px; }
-#root { min-height: 100svh; }
-h1, h2, h3, p { margin: 0; }
-h1, h2, h3 { line-height: 1.15; }
-button, input, select, textarea { font: inherit; }
-button { color: inherit; }
-a { color: inherit; text-underline-offset: 0.25em; }
-button:disabled { cursor: not-allowed; }
-::selection { color: var(--text-on-button); background: var(--primary); }
-:focus-visible { outline: 2px solid var(--focus); outline-offset: 4px; }
-.page-container { width: 100%; max-width: var(--content-width); margin-inline: auto; padding-inline: var(--page-gutter); }
-.skip-link { position: fixed; top: 1rem; left: 1rem; z-index: 10; padding: 0.5rem 1rem; border-radius: var(--radius-md); background: var(--surface); transform: translateY(-200%); }
-.skip-link:focus { transform: translateY(0); }
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  min-width: 320px;
+}
+#root {
+  min-height: 100svh;
+}
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+h1,
+h2,
+h3 {
+  line-height: 1.15;
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+button {
+  color: inherit;
+}
+a {
+  color: inherit;
+  text-underline-offset: 0.25em;
+}
+button:disabled {
+  cursor: not-allowed;
+}
+::selection {
+  color: var(--text-on-button);
+  background: var(--primary);
+}
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 4px;
+}
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
 }
