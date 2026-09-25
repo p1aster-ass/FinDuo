@@ -1,16 +1,39 @@
-# React + Vite
+﻿# FinDuo
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + Vite matchmaking UI with a themed authentication entry screen and a gated dashboard shell.
 
-Currently, two official plugins are available:
+## Development
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- `npm install`
+- `npm run dev`
+- `npm run build`
+- `npm run lint`
 
-## React Compiler
+On Windows PowerShell installations that block npm.ps1, use `npm.cmd`.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Theme system
 
-## Expanding the ESLint configuration
+`src/index.css` defines the supplied dark and light palettes. The eight-digit hex values are transparent variants of those palette colors for glass, borders, and glows. Component styling lives in `src/App.css`.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+The theme switch saves `finduo-theme` in local storage. On the first visit, the app uses the system preference. The inline initializer in `index.html` applies the theme before React renders to avoid a theme flash. Motion respects `prefers-reduced-motion`.
+
+## Authentication integration
+
+There is currently no backend or authentication provider in this repository. The default app displays the entry gate; submitting a form or selecting Google/Discord explains that sign-in is not available. Credentials are never stored, logged, or used to simulate authentication.
+
+Connect your provider in `src/main.jsx` through a reactive wrapper that renders `<App auth={auth} />`. The adapter has this shape:
+
+```js
+const auth = {
+  loading, // true while restoring or verifying the provider session
+  user, // null when signed out; otherwise { displayName?, email? }
+  signIn: async ({ email, password }) => { /* provider sign-in */ },
+  signUp: async ({ email, password }) => { /* provider registration */ },
+  signInWithProvider: async (provider) => { /* 'discord' or 'google' */ },
+  signOut: async () => { /* provider sign-out */ },
+}
+```
+
+Callbacks must reject on failure. Wrap provider responses that return errors instead of throwing. The wrapper must subscribe to the provider's session changes and update `user`; completing a callback alone never opens the dashboard. Set `loading` during initial session restoration. Provider-specific password rules and account verification stay with the provider.
+
+This is a presentation gate. Protected data and API access still require authentication enforcement on the backend. Player discovery, profiles, and messaging remain visibly marked as coming soon.
