@@ -27,21 +27,32 @@ The entry point is `src/main.jsx` → `src/app.jsx` → `src/components/`. Each 
 
 ## Authentication integration
 
-There is currently no backend or authentication provider in this repository. The default app displays the entry gate; submitting a form or selecting Google/Discord explains that sign-in is not available. Credentials are never stored, logged, or used to simulate authentication.
+Neon Auth provides email/password signup, sign-in, sign-out, and persistent sessions through `@neondatabase/auth` and its `BetterAuthReactAdapter`. The implementation lives in `src/auth/`; `src/main.jsx` mounts the provider and `AuthApp` passes its state into the existing app. `AuthGate` reuses the existing styles and forms. Social login is not enabled.
 
-Connect your provider in `src/main.jsx` through a reactive wrapper that renders `<App auth={auth} />`. The adapter has this shape:
+After linking the workspace, run `neon env pull`. Keep `VITE_NEON_AUTH_URL=${NEON_AUTH_BASE_URL}` in the ignored `.env.local`; Vite expands this public endpoint from the Neon-managed value. Restart Vite after changing env values. On the frontend host, set `VITE_NEON_AUTH_URL` to the branch's Auth Base URL before building. Never expose `DATABASE_URL`, database passwords, or admin/API keys through `VITE_*` variables. `.env.example` contains placeholders only.
+
+Components inside the provider can call `useAuth()` from `src/auth/useAuth.js`. It exposes:
 
 ```js
 const auth = {
-  loading, // true while restoring or verifying the provider session
-  user, // null when signed out; otherwise { displayName?, email? }
-  signIn: async ({ email, password }) => { /* provider sign-in */ },
-  signUp: async ({ email, password }) => { /* provider registration */ },
-  signInWithProvider: async (provider) => { /* 'discord' or 'google' */ },
-  signOut: async () => { /* provider sign-out */ },
+  loading, // initial session restoration
+  user, // null when signed out; Neon user with displayName mapped from name
+  session, // current SDK session, or null
+  error, // readable session/configuration error, or an empty string
+  configured,
+  signIn, // async ({ email, password })
+  signUp, // async ({ displayName, email, password, confirmPassword })
+  signOut, // async ()
+  refreshSession, // retry a failed session check when configured
 }
 ```
 
-Callbacks must reject on failure. Wrap provider responses that return errors instead of throwing. The wrapper must subscribe to the provider's session changes and update `user`; completing a callback alone never opens the dashboard. Set `loading` during initial session restoration. Provider-specific password rules and account verification stay with the provider.
+Signup validates a nonblank display name, email, an 8–128 character password, and matching confirmation. It sends the display name as Neon's `name`; confirmation is never sent. Sign-in and sign-out call the managed SDK. SDK errors and network failures become readable messages; forms disable submission during requests.
+
+The SDK's `useSession()` owns session restoration and updates after auth actions, across tabs, on window focus, and with a 60-second refresh while signed in. Neon manages session cookies; the app does not put passwords or custom tokens in browser storage. A successful signup response alone never grants access: the app waits for a session containing a user. Session-check failures show a retry action. The SDK may use browser storage for session-change notifications, not application-managed credentials.
+
+In Neon Console, email/password and signup must be enabled. Local development needs Allow Localhost (currently enabled). Add the deployed app's exact origin to trusted domains. This foundation matches the current branch configuration: email verification is not required. If verification is enabled later, the form reports that requirement, but a verification-code entry flow is not included. Configure custom SMTP before production email delivery; see the [Neon production checklist](https://neon.com/docs/auth/production-checklist).
+
+Validation: `npm run test:auth`, `npm run lint`, `npm run build`, and `git diff --check`. The focused tests cover validation, SDK error responses, network failures, and sign-out failures. To smoke-test the live service, create a disposable account, reload, sign out, reload again, try an incorrect password, then sign in with the correct one. Remove the disposable user afterward through Neon Console.
 
 This is a presentation gate. Protected data and API access still require authentication enforcement on the backend. Player discovery, profiles, and messaging remain visibly marked as coming soon.
