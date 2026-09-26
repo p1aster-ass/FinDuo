@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import NavBar from "./NavBar.jsx";
 import Overview from "./Overview.jsx";
 import Discover from "./Discover.jsx";
@@ -7,6 +8,28 @@ import Profile from "./Profile.jsx";
 import Icon from "./Icon.jsx";
 import { backend } from "../api/backend.js";
 import "./Hub.css";
+
+// Pages swing sideways in 3D, in the direction of the nav order.
+const PAGE_ORDER = ["overview", "discover", "messages", "profile"];
+const pageMotion = {
+  enter: (direction) => ({
+    opacity: 0,
+    rotateY: direction * -16,
+    x: direction * 70,
+  }),
+  center: {
+    opacity: 1,
+    rotateY: 0,
+    x: 0,
+    transition: { type: "spring", stiffness: 220, damping: 26 },
+  },
+  exit: (direction) => ({
+    opacity: 0,
+    rotateY: direction * 16,
+    x: direction * -70,
+    transition: { duration: 0.18, ease: "easeIn" },
+  }),
+};
 
 // The signed-in player hub. Screens whose backend doesn't exist yet
 // (see src/api/backend.js) show a "not live yet" state instead of data.
@@ -17,6 +40,7 @@ export default function Dashboard({
   onProfileChange,
 }) {
   const [view, setView] = useState("overview");
+  const [direction, setDirection] = useState(1);
   const [noticeOpen, setNoticeOpen] = useState(!profileStored);
   const mainRef = useRef(null);
   const user = {
@@ -25,6 +49,8 @@ export default function Dashboard({
   };
 
   function navigate(next) {
+    if (next === view) return;
+    setDirection(PAGE_ORDER.indexOf(next) >= PAGE_ORDER.indexOf(view) ? 1 : -1);
     setView(next);
     window.scrollTo(0, 0);
     mainRef.current?.focus({ preventScroll: true });
@@ -81,8 +107,20 @@ export default function Dashboard({
             </button>
           </div>
         )}
-        <div key={view} className="hub-page">
-          {pages[view]}
+        <div className="hub-stage">
+          <AnimatePresence mode="wait" custom={direction} initial={false}>
+            <motion.div
+              key={view}
+              className="hub-page"
+              custom={direction}
+              variants={pageMotion}
+              initial="enter"
+              animate="center"
+              exit="exit"
+            >
+              {pages[view]}
+            </motion.div>
+          </AnimatePresence>
         </div>
       </main>
     </div>

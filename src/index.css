@@ -1,40 +1,58 @@
-﻿:root {
-  /* Dark mode: the four brand colors in their original roles. */
-  --bg-main: #16110d;
-  --bg-card: #2c2018;
-  --text-main: #f4f1ed;
+@import "@fontsource-variable/unbounded";
+@import "@fontsource-variable/rubik";
+
+/* Playful toy theme: solid surfaces, thick ink outlines, and hard "pressable"
+   offset shadows instead of glass and glows. Orange stays the brand accent. */
+:root {
+  /* Arcade night (dark). */
+  --bg-main: #17142a;
+  --bg-card: #241f3f;
+  --text-main: #fff3e3;
   --accent: #ff6d00;
-  --bg-lines-and-borders: rgba(255, 109, 0, 0.35);
+  --ink: #0b0916;
+  --bg-lines-and-borders: #0b0916;
+
+  /* Toy colors for characters, tags, and highlights. */
+  --toy-grape: #8b6cff;
+  --toy-mint: #2ec4a0;
+  --toy-sun: #ffc53d;
+  --toy-pink: #ff6fa8;
 
   /* Shared component aliases follow the active theme's role mapping. */
   --bg-primary: var(--bg-main);
   --surface: var(--bg-card);
   --primary: var(--accent);
   --text-primary: var(--text-main);
-  --border: var(--bg-lines-and-borders);
-  --background-lines: var(--bg-lines-and-borders);
-  --text-secondary: #f4f1edb8;
-  --text-on-button: #16110d;
+  --border: var(--ink);
+  --line: var(--ink);
+  --background-lines: rgba(255, 243, 227, 0.07);
+  --text-secondary: #bcb5d6;
+  --text-on-button: #1d1a2f;
   --button-fill: var(--accent);
-  --glass: #2c2018b8;
-  --field: #16110d99;
-  --glow: #ff6d0038;
-  --shadow: #16110d80;
-  --focus: #ff6d00;
-  --radius-md: 0.875rem;
+  --glass: var(--bg-card);
+  --field: #1c1834;
+  --glow: rgba(255, 109, 0, 0.16);
+  --shadow: var(--ink);
+  --focus: var(--toy-sun);
+
+  /* Hard offset shadows: the "toy" depth. */
+  --pop-sm: 0 3px 0 var(--ink);
+  --pop: 0 5px 0 var(--ink);
+  --pop-lg: 0 8px 0 var(--ink);
+  --outline: 2px solid var(--line);
+
+  --font-display: "Unbounded Variable", "Rubik Variable", system-ui, sans-serif;
+  --font-body: "Rubik Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --radius-md: 1rem;
   --radius-lg: 1.75rem;
   --content-width: 78rem;
   --page-gutter: clamp(1.25rem, 4vw, 3rem);
-  --transition: 200ms ease;
+  --transition: 180ms cubic-bezier(0.3, 1.4, 0.5, 1);
   color-scheme: dark;
-  font-family:
-    "Segoe UI",
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    sans-serif;
+  font-family: var(--font-body);
   font-size: 16px;
-  line-height: 1.6;
+  line-height: 1.55;
   color: var(--text-primary);
   background: var(--bg-primary);
   font-synthesis: none;
@@ -43,28 +61,24 @@
   -moz-osx-font-smoothing: grayscale;
 }
 :root[data-theme="light"] {
-  /* Light mode: copper canvas, caramel surfaces, and dark-mode espresso accents. */
-  --bg-main: #c89570;
-  --bg-card: #eac09b;
-  --text-main: #16110d;
-  --bg-lines-and-borders: rgba(44, 32, 24, 0.24);
-  --accent: #ff6d00;
-  --text-secondary: #3e281b;
-  --text-on-button: #16110d;
-  --button-fill: var(--accent);
-  --glass: var(--bg-card);
-  --field: #e0ad83;
-  --glow: rgba(255, 109, 0, 0.22);
-  --shadow: rgba(44, 32, 24, 0.2);
-  --auth-card-shadow:
-    0 28px 72px -16px rgba(44, 32, 24, 0.34), 0 6px 16px rgba(44, 32, 24, 0.1),
-    inset 0 1px 0 rgba(244, 241, 237, 0.3);
-  --light-deep: #2c2018;
-  --light-on-deep: #f4f1ed;
-  --light-card-end: #dda77c;
-  --light-ambient: rgba(255, 109, 0, 0.22);
-  --light-shade: rgba(44, 32, 24, 0.14);
-  --focus: #16110d;
+  /* Toybox (light): warm cream canvas, white surfaces, deep-ink outlines. */
+  --bg-main: #fff3e3;
+  --bg-card: #ffffff;
+  --text-main: #1d1a2f;
+  --ink: #1d1a2f;
+  --bg-lines-and-borders: #1d1a2f;
+  --background-lines: rgba(29, 26, 47, 0.08);
+  --text-secondary: #5c5672;
+  --field: #fff9f1;
+  --glow: rgba(255, 109, 0, 0.14);
+  --focus: #1d1a2f;
+  /* Kept for older light-mode rules; they now resolve to the toy look. */
+  --auth-card-shadow: var(--pop-lg);
+  --light-deep: #1d1a2f;
+  --light-on-deep: #fff3e3;
+  --light-card-end: var(--bg-card);
+  --light-ambient: transparent;
+  --light-shade: rgba(29, 26, 47, 0.12);
   color-scheme: light;
 }
 *,
@@ -88,7 +102,10 @@ p {
 h1,
 h2,
 h3 {
-  line-height: 1.15;
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
 }
 button,
 input,
@@ -108,11 +125,11 @@ button:disabled {
 }
 ::selection {
   color: var(--text-on-button);
-  background: var(--primary);
+  background: var(--toy-sun);
 }
 :focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 4px;
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
 }
 @media (prefers-reduced-motion: reduce) {
   *,

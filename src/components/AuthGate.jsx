@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import Brand from "./Brand.jsx";
 import Icon from "./Icon.jsx";
 import ThemeToggle from "./ThemeToggle.jsx";
+import DuoStage from "./DuoStage.jsx";
 import { authErrorMessage } from "../auth/authActions.js";
 
 function ProviderIcon({ provider }) {
@@ -92,24 +93,27 @@ export default function AuthGate({ auth }) {
 
   return (
     <div className="entry-screen">
-      <div className="entry-background" aria-hidden="true">
-        <div className="ambient-orbit orbit-one" />
-        <div className="ambient-orbit orbit-two" />
-      </div>
       <header className="entry-header page-container">
         <Brand />
         <ThemeToggle />
       </header>
-      <main id="main-content" className="entry-main" tabIndex={-1}>
-        <div className="entry-intro">
-          <p className="eyebrow">
-            <span className="status-dot" /> GOOD GAMES START WITH GOOD PEOPLE
-          </p>
-          <h1>
-            Find your duo.
-            <br className="mobile-break" /> <span>Find your flow.</span>
+      <main
+        id="main-content"
+        className="entry-main page-container"
+        tabIndex={-1}
+      >
+        <div className="entry-hero">
+          <h1 className="entry-title">
+            Find your <span className="title-sticker">duo.</span>
           </h1>
-          <p>Your game. Your vibe. Your next teammate.</p>
+          <p className="entry-sub">
+            Queue up with players who match your game, your rank, and your vibe.
+            Less solo, more duo.
+          </p>
+          <DuoStage variant="auth" />
+          <p className="entry-hint">
+            <Icon name="spark" /> Poke the buddies. Drag to spin.
+          </p>
         </div>
         <section className="auth-card glass-panel" aria-labelledby="auth-title">
           <div className="auth-switch" role="group" aria-label="Account access">
@@ -250,31 +254,41 @@ export default function AuthGate({ auth }) {
               <Icon name="arrow" />
             </button>
           </form>
-          {auth?.signInWithProvider && <>
-          <div className="auth-divider">
-            <span>or continue with</span>
-          </div>
-          <div className="provider-buttons">
-            {["Discord", "Google"].map((provider) => (
-              <button
-                type="button"
-                className="button button-secondary"
-                key={provider}
-                disabled={pending}
-                onClick={() => authenticate(null, provider)}
-                aria-label={`Continue with ${provider}`}
-              >
-                <ProviderIcon provider={provider} />
-                {provider}
-              </button>
-            ))}
-          </div>
-          </>}
-          <p id="auth-notice" className="auth-notice" role={error || auth?.error ? "alert" : "status"}>
+          {auth?.signInWithProvider && (
+            <>
+              <div className="auth-divider">
+                <span>or continue with</span>
+              </div>
+              <div className="provider-buttons">
+                {["Discord", "Google"].map((provider) => (
+                  <button
+                    type="button"
+                    className="button button-secondary"
+                    key={provider}
+                    disabled={pending}
+                    onClick={() => authenticate(null, provider)}
+                    aria-label={`Continue with ${provider}`}
+                  >
+                    <ProviderIcon provider={provider} />
+                    {provider}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+          <p
+            id="auth-notice"
+            className="auth-notice"
+            role={error || auth?.error ? "alert" : "status"}
+          >
             {error || auth?.error || notice}
           </p>
           {auth?.error && auth.refreshSession && (
-            <button type="button" className="text-button" onClick={() => auth.refreshSession()}>
+            <button
+              type="button"
+              className="text-button"
+              onClick={() => auth.refreshSession()}
+            >
               Retry session check
             </button>
           )}
@@ -291,9 +305,6 @@ export default function AuthGate({ auth }) {
             </button>
           </p>
         </section>
-        <p className="entry-caption">
-          <Icon name="users" /> Better together. In every lobby.
-        </p>
       </main>
       <footer className="entry-footer page-container">
         <span>© {new Date().getFullYear()} FinDuo</span>

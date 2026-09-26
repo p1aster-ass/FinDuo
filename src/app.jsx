@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 // Base styles load first so component stylesheets can build on them.
 import "./App.css";
 import AuthGate from "./components/AuthGate.jsx";
@@ -6,6 +7,25 @@ import Dashboard from "./components/Dashboard.jsx";
 import Onboarding from "./components/Onboarding.jsx";
 import { profileApi } from "./api/index.js";
 import { isProfileComplete } from "./lib/match.js";
+
+// Screens swing in and out in 3D; the stage around them sets the perspective.
+const screenMotion = {
+  enter: { opacity: 0, rotateX: -14, y: 70, scale: 0.96 },
+  center: {
+    opacity: 1,
+    rotateX: 0,
+    y: 0,
+    scale: 1,
+    transition: { type: "spring", stiffness: 180, damping: 24 },
+  },
+  exit: {
+    opacity: 0,
+    rotateX: 10,
+    y: -50,
+    scale: 0.97,
+    transition: { duration: 0.22, ease: "easeIn" },
+  },
+};
 
 function StatusScreen({ children }) {
   return (
@@ -60,23 +80,26 @@ function App({ auth }) {
 
   function renderScreen() {
     if (auth?.loading) {
-      return (
-        <StatusScreen>
+      return [
+        "loading",
+        <StatusScreen key="loading">
           <p role="status">Getting your player hub ready…</p>
-        </StatusScreen>
-      );
+        </StatusScreen>,
+      ];
     }
-    if (!auth?.user) return <AuthGate auth={auth} />;
+    if (!auth?.user) return ["auth", <AuthGate key="auth" auth={auth} />];
     if (!loaded) {
-      return (
-        <StatusScreen>
+      return [
+        "loading",
+        <StatusScreen key="loading">
           <p role="status">Loading your profile…</p>
-        </StatusScreen>
-      );
+        </StatusScreen>,
+      ];
     }
     if (record.error) {
-      return (
-        <StatusScreen>
+      return [
+        "error",
+        <StatusScreen key="error">
           <div className="status-message" role="alert">
             <p>{record.error}</p>
             <button
@@ -90,35 +113,54 @@ function App({ auth }) {
               Try again
             </button>
           </div>
-        </StatusScreen>
-      );
+        </StatusScreen>,
+      ];
     }
     if (!isProfileComplete(record.profile)) {
-      return (
+      return [
+        "onboarding",
         <Onboarding
+          key="onboarding"
           user={auth.user}
           initialProfile={record.profile}
           onComplete={saveProfile}
-        />
-      );
+        />,
+      ];
     }
-    return (
+    return [
+      "hub",
       <Dashboard
+        key="hub"
         auth={auth}
         profile={record.profile}
         profileStored={record.stored}
         onProfileChange={saveProfile}
-      />
-    );
+      />,
+    ];
   }
 
+  const [screenKey, screen] = renderScreen();
+
   return (
-    <>
+    <MotionConfig reducedMotion="user">
       <a className="skip-link" href="#main-content">
         Skip to content
       </a>
-      {renderScreen()}
-    </>
+      <div className="screen-stage">
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={screenKey}
+            className="screen"
+            variants={screenMotion}
+            initial="enter"
+            animate="center"
+            exit="exit"
+          >
+            {screen}
+          </motion.div>
+        </AnimatePresence>
+      </div>
+    </MotionConfig>
   );
 }
 export default App;

@@ -9,7 +9,7 @@ export default function ThemeToggle() {
     document.documentElement.dataset.theme = theme;
     document
       .querySelector('meta[name="theme-color"]')
-      ?.setAttribute("content", theme === "dark" ? "#16110D" : "#C89570");
+      ?.setAttribute("content", theme === "dark" ? "#17142A" : "#FFF3E3");
     try {
       localStorage.setItem("finduo-theme", theme);
     } catch {

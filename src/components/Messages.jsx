@@ -286,7 +286,6 @@ export default function Messages({
   const heading = (
     <div className="dashboard-heading">
       <div>
-        <p className="eyebrow">MESSAGES</p>
         <h1>
           From matched to queued<span className="brand-period">.</span>
         </h1>

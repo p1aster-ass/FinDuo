@@ -1,5 +1,7 @@
 import { useState } from "react";
+import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 import Icon from "./Icon.jsx";
+import Tilt from "./Tilt.jsx";
 import { COMM_STYLES, GAMES, RANKS, REGIONS } from "../data/options.js";
 import {
   normalizeUsername,
@@ -8,6 +10,33 @@ import {
   usernameError,
 } from "../lib/username.js";
 import "./ProfileForm.css";
+
+// Motion: sections and their cards fade up in a spring stagger, controls
+// spring on hover/tap, and checkmarks pop in. MotionConfig below turns the
+// movement off for people who prefer reduced motion.
+const stagger = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.06 } },
+};
+const fadeUp = {
+  hidden: { opacity: 0, y: 18 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { type: "spring", stiffness: 300, damping: 24 },
+  },
+};
+const cardPress = {
+  whileHover: { scale: 1.03, y: -2 },
+  whileTap: { scale: 0.97 },
+};
+const tilePress = { whileHover: { scale: 1.05 }, whileTap: { scale: 0.95 } };
+const popIn = {
+  initial: { scale: 0, opacity: 0, rotate: -45 },
+  animate: { scale: 1, opacity: 1, rotate: 0 },
+  exit: { scale: 0, opacity: 0 },
+  transition: { type: "spring", stiffness: 500, damping: 26 },
+};
 
 export function Section({
   id,
@@ -21,7 +50,8 @@ export function Section({
   children,
 }) {
   return (
-    <section
+    <motion.section
+      variants={fadeUp}
       id={`ob-${id}`}
       className={`ob-section glass-panel${error ? " has-error" : ""}`}
       aria-labelledby={`ob-${id}-title`}
@@ -29,13 +59,23 @@ export function Section({
     >
       <header className="ob-section-head">
         <span className={`ob-step${done ? " is-done" : ""}`} aria-hidden="true">
-          {done ? (
-            <Icon name="check" />
-          ) : icon ? (
-            <Icon name={icon} />
-          ) : (
-            String(index).padStart(2, "0")
-          )}
+          <AnimatePresence mode="wait" initial={false}>
+            {done ? (
+              <motion.span key="done" className="ob-step-mark" {...popIn}>
+                <Icon name="check" />
+              </motion.span>
+            ) : (
+              <motion.span
+                key="todo"
+                className="ob-step-mark"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              >
+                {icon ? <Icon name={icon} /> : String(index).padStart(2, "0")}
+              </motion.span>
+            )}
+          </AnimatePresence>
         </span>
         <div className="ob-section-copy">
           <h2 id={`ob-${id}-title`}>{title}</h2>
@@ -44,8 +84,19 @@ export function Section({
         {meta && <span className="ob-meta">{meta}</span>}
       </header>
       {children}
-      {error && <p className="ob-error">{error}</p>}
-    </section>
+      <AnimatePresence initial={false}>
+        {error && (
+          <motion.p
+            className="ob-error"
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+          >
+            {error}
+          </motion.p>
+        )}
+      </AnimatePresence>
+    </motion.section>
   );
 }
 
@@ -137,237 +188,286 @@ export default function ProfileForm({
   }
 
   return (
-    <form className="ob-form" onSubmit={handleSubmit} noValidate>
-      {showProgress && (
-        <ol
-          className="ob-progress"
-          aria-label={`${completed} of ${steps.length} sections complete`}
-        >
-          {steps.map((step) => (
-            <li key={step.key} className={step.done ? "is-done" : ""}>
-              <a href={`#ob-${step.key}`}>
-                <span className="ob-progress-bar" />
-                {step.label}
-              </a>
-            </li>
-          ))}
-        </ol>
-      )}
-
-      {children}
-
-      <Section
-        id="username"
-        index={1}
-        title="Choose your username"
-        hint="Your unique handle. 3–20 letters, numbers, or underscores."
-        done={!usernameProblem && !rejected}
-        error={usernameMessage}
+    <MotionConfig reducedMotion="user">
+      <motion.form
+        className="ob-form"
+        onSubmit={handleSubmit}
+        noValidate
+        variants={stagger}
+        initial="hidden"
+        animate="show"
       >
-        <div className="form-field username-field">
-          <label htmlFor="ob-username-input" className="visually-hidden">
-            Username
-          </label>
-          <div className="input-wrap">
-            <span className="username-at" aria-hidden="true">
-              @
-            </span>
-            <input
-              id="ob-username-input"
-              value={username}
-              maxLength={USERNAME_MAX}
-              autoComplete="username"
-              autoCapitalize="none"
-              spellCheck={false}
-              aria-describedby="ob-username-hint"
-              aria-invalid={Boolean(usernameMessage)}
-              onChange={(event) =>
-                setUsername(event.target.value.toLowerCase())
-              }
+        {showProgress && (
+          <motion.ol
+            variants={fadeUp}
+            className="ob-progress"
+            aria-label={`${completed} of ${steps.length} sections complete`}
+          >
+            {steps.map((step) => (
+              <li key={step.key} className={step.done ? "is-done" : ""}>
+                <a href={`#ob-${step.key}`}>
+                  <span className="ob-progress-bar" />
+                  {step.label}
+                </a>
+              </li>
+            ))}
+          </motion.ol>
+        )}
+
+        {children}
+
+        <Section
+          id="username"
+          index={1}
+          title="Choose your username"
+          hint="Your unique handle. 3–20 letters, numbers, or underscores."
+          done={!usernameProblem && !rejected}
+          error={usernameMessage}
+        >
+          <div className="form-field username-field">
+            <label htmlFor="ob-username-input" className="visually-hidden">
+              Username
+            </label>
+            <div className="input-wrap">
+              <span className="username-at" aria-hidden="true">
+                @
+              </span>
+              <input
+                id="ob-username-input"
+                value={username}
+                maxLength={USERNAME_MAX}
+                autoComplete="username"
+                autoCapitalize="none"
+                spellCheck={false}
+                aria-describedby="ob-username-hint"
+                aria-invalid={Boolean(usernameMessage)}
+                onChange={(event) =>
+                  setUsername(event.target.value.toLowerCase())
+                }
+              />
+            </div>
+          </div>
+        </Section>
+
+        <Section
+          id="games"
+          index={2}
+          title="Select your games"
+          hint="Pick every game you want to find teammates for."
+          meta={games.length > 0 ? `${games.length} selected` : null}
+          done={games.length > 0}
+          error={errorFor("games") && "Pick at least one game."}
+        >
+          <motion.ul
+            variants={stagger}
+            className="game-grid"
+            aria-describedby="ob-games-hint"
+          >
+            {GAMES.map((game) => {
+              const selected = games.includes(game.id);
+              return (
+                <motion.li key={game.id} variants={fadeUp}>
+                  <Tilt
+                    as={motion.button}
+                    max={12}
+                    {...cardPress}
+                    type="button"
+                    className="game-card"
+                    aria-pressed={selected}
+                    onClick={() => toggleGame(game.id)}
+                  >
+                    <span className="game-art" aria-hidden="true">
+                      <span className="game-tag">{game.tag}</span>
+                    </span>
+                    <span className="game-info">
+                      <span className="game-name">{game.name}</span>
+                      <span className="game-genre">{game.genre}</span>
+                    </span>
+                    <span className="game-check" aria-hidden="true">
+                      <AnimatePresence initial={false}>
+                        {selected && (
+                          <motion.span className="game-check-mark" {...popIn}>
+                            <Icon name="check" />
+                          </motion.span>
+                        )}
+                      </AnimatePresence>
+                    </span>
+                  </Tilt>
+                </motion.li>
+              );
+            })}
+          </motion.ul>
+        </Section>
+
+        <Section
+          id="region"
+          index={3}
+          title="Server region"
+          hint="Where you queue most. We match you with players on low-ping servers."
+          done={Boolean(region)}
+          error={errorFor("region") && "Choose your region."}
+        >
+          <motion.div
+            variants={stagger}
+            className="region-grid"
+            role="radiogroup"
+            aria-labelledby="ob-region-title"
+            aria-describedby="ob-region-hint"
+          >
+            {REGIONS.map((option) => (
+              <motion.label
+                key={option.id}
+                variants={fadeUp}
+                className="choice region-option"
+              >
+                <input
+                  className="visually-hidden"
+                  type="radio"
+                  name="region"
+                  value={option.id}
+                  checked={region === option.id}
+                  onChange={() => setRegion(option.id)}
+                />
+                <Tilt
+                  as={motion.span}
+                  {...cardPress}
+                  className="choice-body region-body"
+                >
+                  <span className="region-icon">
+                    <Icon name="globe" />
+                  </span>
+                  <span className="region-label">{option.label}</span>
+                  <span className="region-detail">{option.detail}</span>
+                </Tilt>
+              </motion.label>
+            ))}
+          </motion.div>
+        </Section>
+
+        <Section
+          id="rank"
+          index={4}
+          title="Current rank"
+          hint="Your usual skill tier. You can change it later."
+          meta={rank ? `Tier ${rankIndex + 1} of ${RANKS.length}` : null}
+          done={Boolean(rank)}
+          error={errorFor("rank") && "Choose your current rank."}
+        >
+          <motion.div
+            variants={stagger}
+            className="rank-grid"
+            role="radiogroup"
+            aria-labelledby="ob-rank-title"
+            aria-describedby="ob-rank-hint"
+          >
+            {RANKS.map((tier, index) => (
+              <motion.label
+                key={tier}
+                variants={fadeUp}
+                className={`choice rank-option${index < rankIndex ? " is-below" : ""}`}
+                style={{ "--tier": (index + 1) / RANKS.length }}
+              >
+                <input
+                  className="visually-hidden"
+                  type="radio"
+                  name="rank"
+                  value={tier}
+                  checked={rank === tier}
+                  onChange={() => setRank(tier)}
+                />
+                <Tilt
+                  as={motion.span}
+                  max={14}
+                  {...tilePress}
+                  className="choice-body rank-body"
+                >
+                  <RankEmblem level={index + 1} />
+                  <span className="rank-name">{tier}</span>
+                </Tilt>
+              </motion.label>
+            ))}
+          </motion.div>
+          <div className="rank-track" aria-hidden="true">
+            <span
+              style={{
+                width: `${rank ? ((rankIndex + 1) / RANKS.length) * 100 : 0}%`,
+              }}
             />
           </div>
-        </div>
-      </Section>
+        </Section>
 
-      <Section
-        id="games"
-        index={2}
-        title="Select your games"
-        hint="Pick every game you want to find teammates for."
-        meta={games.length > 0 ? `${games.length} selected` : null}
-        done={games.length > 0}
-        error={errorFor("games") && "Pick at least one game."}
-      >
-        <ul className="game-grid" aria-describedby="ob-games-hint">
-          {GAMES.map((game) => {
-            const selected = games.includes(game.id);
-            return (
-              <li key={game.id}>
-                <button
-                  type="button"
-                  className="game-card"
-                  aria-pressed={selected}
-                  onClick={() => toggleGame(game.id)}
-                >
-                  <span className="game-art" aria-hidden="true">
-                    <span className="game-tag">{game.tag}</span>
-                  </span>
-                  <span className="game-info">
-                    <span className="game-name">{game.name}</span>
-                    <span className="game-genre">{game.genre}</span>
-                  </span>
-                  <span className="game-check" aria-hidden="true">
-                    <Icon name="check" />
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      </Section>
-
-      <Section
-        id="region"
-        index={3}
-        title="Server region"
-        hint="Where you queue most. We match you with players on low-ping servers."
-        done={Boolean(region)}
-        error={errorFor("region") && "Choose your region."}
-      >
-        <div
-          className="region-grid"
-          role="radiogroup"
-          aria-labelledby="ob-region-title"
-          aria-describedby="ob-region-hint"
+        <Section
+          id="comms"
+          index={5}
+          title="Preferred comm style"
+          hint="How you like to talk (or not) in-game. Pick any that apply."
+          done={comms.length > 0}
+          error={errorFor("comms") && "Pick at least one comm style."}
         >
-          {REGIONS.map((option) => (
-            <label key={option.id} className="choice region-option">
-              <input
-                className="visually-hidden"
-                type="radio"
-                name="region"
-                value={option.id}
-                checked={region === option.id}
-                onChange={() => setRegion(option.id)}
-              />
-              <span className="choice-body region-body">
-                <span className="region-icon">
-                  <Icon name="globe" />
-                </span>
-                <span className="region-label">{option.label}</span>
-                <span className="region-detail">{option.detail}</span>
-              </span>
-            </label>
-          ))}
-        </div>
-      </Section>
-
-      <Section
-        id="rank"
-        index={4}
-        title="Current rank"
-        hint="Your usual skill tier. You can change it later."
-        meta={rank ? `Tier ${rankIndex + 1} of ${RANKS.length}` : null}
-        done={Boolean(rank)}
-        error={errorFor("rank") && "Choose your current rank."}
-      >
-        <div
-          className="rank-grid"
-          role="radiogroup"
-          aria-labelledby="ob-rank-title"
-          aria-describedby="ob-rank-hint"
-        >
-          {RANKS.map((tier, index) => (
-            <label
-              key={tier}
-              className={`choice rank-option${index < rankIndex ? " is-below" : ""}`}
-              style={{ "--tier": (index + 1) / RANKS.length }}
-            >
-              <input
-                className="visually-hidden"
-                type="radio"
-                name="rank"
-                value={tier}
-                checked={rank === tier}
-                onChange={() => setRank(tier)}
-              />
-              <span className="choice-body rank-body">
-                <RankEmblem level={index + 1} />
-                <span className="rank-name">{tier}</span>
-              </span>
-            </label>
-          ))}
-        </div>
-        <div className="rank-track" aria-hidden="true">
-          <span
-            style={{
-              width: `${rank ? ((rankIndex + 1) / RANKS.length) * 100 : 0}%`,
-            }}
-          />
-        </div>
-      </Section>
-
-      <Section
-        id="comms"
-        index={5}
-        title="Preferred comm style"
-        hint="How you like to talk (or not) in-game. Pick any that apply."
-        done={comms.length > 0}
-        error={errorFor("comms") && "Pick at least one comm style."}
-      >
-        <div className="comm-list" aria-describedby="ob-comms-hint">
-          {COMM_STYLES.map((style) => (
-            <button
-              key={style.id}
-              type="button"
-              className="comm-pill"
-              aria-pressed={comms.includes(style.id)}
-              onClick={() => setComms((current) => toggleComm(current, style))}
-            >
-              <Icon name={style.icon} />
-              {style.label}
-            </button>
-          ))}
-        </div>
-        <p className="ob-footnote">
-          Mic Required and Ping Only can’t be combined, and neither can Chill
-          and Highly Competitive.
-        </p>
-      </Section>
-
-      <div className="ob-submit glass-panel">
-        <p className="ob-submit-count">
-          <strong>{completed}</strong> of {steps.length} sections complete
-        </p>
-        <div className="ob-submit-actions">
-          {onCancel && (
-            <button
-              type="button"
-              className="button button-secondary"
-              onClick={onCancel}
-            >
-              Cancel
-            </button>
-          )}
-          <button
-            type="submit"
-            className={`button button-primary ob-cta${isComplete ? " is-ready" : ""}`}
-            aria-describedby="ob-status"
-            disabled={submitting}
+          <motion.div
+            variants={stagger}
+            className="comm-list"
+            aria-describedby="ob-comms-hint"
           >
-            {submitLabel}
-            <Icon name="arrow" />
-          </button>
-        </div>
-        <p
-          id="ob-status"
-          className={`ob-status${error ? " is-error" : ""}`}
-          role={error ? "alert" : "status"}
-        >
-          {statusText}
-        </p>
-      </div>
-    </form>
+            {COMM_STYLES.map((style) => (
+              <motion.button
+                key={style.id}
+                variants={fadeUp}
+                {...cardPress}
+                type="button"
+                className="comm-pill"
+                aria-pressed={comms.includes(style.id)}
+                onClick={() =>
+                  setComms((current) => toggleComm(current, style))
+                }
+              >
+                <Icon name={style.icon} />
+                {style.label}
+              </motion.button>
+            ))}
+          </motion.div>
+          <p className="ob-footnote">
+            Mic Required and Ping Only can’t be combined, and neither can Chill
+            and Highly Competitive.
+          </p>
+        </Section>
+
+        <motion.div variants={fadeUp} className="ob-submit glass-panel">
+          <p className="ob-submit-count">
+            <strong>{completed}</strong> of {steps.length} sections complete
+          </p>
+          <div className="ob-submit-actions">
+            {onCancel && (
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={onCancel}
+              >
+                Cancel
+              </button>
+            )}
+            <motion.button
+              type="submit"
+              className={`button button-primary ob-cta${isComplete ? " is-ready" : ""}`}
+              aria-describedby="ob-status"
+              disabled={submitting}
+              whileHover={submitting ? undefined : { scale: 1.02 }}
+              whileTap={submitting ? undefined : { scale: 0.98 }}
+            >
+              {submitLabel}
+              <Icon name="arrow" />
+            </motion.button>
+          </div>
+          <p
+            id="ob-status"
+            className={`ob-status${error ? " is-error" : ""}`}
+            role={error ? "alert" : "status"}
+          >
+            {statusText}
+          </p>
+        </motion.div>
+      </motion.form>
+    </MotionConfig>
   );
 }
 

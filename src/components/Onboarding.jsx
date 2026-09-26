@@ -32,26 +32,18 @@ export default function Onboarding({ user, initialProfile, onComplete }) {
 
   return (
     <div className="entry-screen onboarding">
-      <div className="entry-background" aria-hidden="true">
-        <div className="ambient-orbit orbit-one" />
-        <div className="ambient-orbit orbit-two" />
-      </div>
       <header className="entry-header page-container">
         <Brand />
         <ThemeToggle />
       </header>
       <main id="main-content" className="page-container ob-main" tabIndex={-1}>
-        <div className="entry-intro ob-intro">
-          <p className="eyebrow">
-            <span className="status-dot" /> ONE LAST STEP BEFORE YOU QUEUE
-          </p>
+        <div className="ob-intro">
           <h1>
-            Build your
-            <br className="mobile-break" /> <span>gamer profile.</span>
+            Build your <span className="title-sticker">player card.</span>
           </h1>
           <p>
-            {user?.displayName ? `Welcome in, ${user.displayName}. ` : ""}
-            Tell us what you play and how you play it.
+            {user?.displayName ? `Welcome in, ${user.displayName}! ` : ""}
+            Tell us what you play and how you play it. Five quick steps.
           </p>
         </div>
         <ProfileForm

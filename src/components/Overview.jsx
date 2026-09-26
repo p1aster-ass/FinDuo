@@ -1,5 +1,8 @@
+import { motion } from "framer-motion";
+import DuoStage from "./DuoStage.jsx";
 import Icon from "./Icon.jsx";
 import PlayerAvatar from "./PlayerAvatar.jsx";
+import Tilt from "./Tilt.jsx";
 import { backend } from "../api/backend.js";
 import { REGION_BY_ID } from "../data/options.js";
 import { profileStrength } from "../lib/match.js";
@@ -52,27 +55,23 @@ export default function Overview({
   return (
     <>
       <div className="dashboard-heading">
-        <div>
-          <p className="eyebrow">YOUR NEXT CHAPTER</p>
-          <h1>
-            Hey, {user.displayName}
-            <span className="brand-period">.</span>
-          </h1>
-        </div>
+        <h1>
+          Hey, {user.displayName}
+          <span className="brand-period">!</span>
+        </h1>
         <span className="outline-badge">Your player hub</span>
       </div>
 
       <section className="hero glass-panel" aria-labelledby="hero-title">
         <div className="hero-copy">
-          <p className="eyebrow">FIND YOUR PEOPLE. PLAY YOUR GAME.</p>
           <h2 id="hero-title">
-            Great games start
+            Two players.
             <br />
-            with the right duo.
+            One <span className="title-sticker">team.</span>
           </h2>
           <p className="hero-description">
-            Find your duo or round out your squad. Connect with players who
-            share your pace, your goals, and your love for the game.
+            Find a duo who plays like you do: same games, same rank, same vibe.
+            Then queue up and actually have fun.
           </p>
           <div className="hero-actions">
             <button
@@ -97,15 +96,8 @@ export default function Overview({
               : "Player discovery is almost here. Your profile is ready for it."}
           </p>
         </div>
-        <div className="duo-art" aria-hidden="true">
-          <div className="duo-art-orbit" />
-          <span className="duo-tile tile-back">
-            <Icon name="users" />
-          </span>
-          <span className="duo-tile tile-front">
-            <Icon name="duo" />
-          </span>
-          <span className="duo-art-label">BETTER TOGETHER</span>
+        <div className="hero-stage">
+          <DuoStage variant="hub" />
         </div>
       </section>
 
@@ -123,7 +115,12 @@ export default function Overview({
           </div>
           <ul className="top-match-list">
             {matches.slice(0, 3).map(({ player, match }) => (
-              <li key={player.id} className="top-match glass-panel">
+              <Tilt
+                as={motion.li}
+                max={6}
+                key={player.id}
+                className="top-match glass-panel"
+              >
                 <PlayerAvatar name={player.name} online={player.online} />
                 <div className="top-match-copy">
                   <p className="top-match-name">{player.name}</p>
@@ -141,7 +138,7 @@ export default function Overview({
                 >
                   <Icon name="chat" />
                 </button>
-              </li>
+              </Tilt>
             ))}
           </ul>
         </section>
@@ -149,11 +146,13 @@ export default function Overview({
 
       <section className="feature-grid" aria-label="Your player hub">
         {features.map((item) => (
-          <button
+          <Tilt
+            as={motion.button}
             type="button"
             className="feature-card feature-link glass-panel"
             key={item.title}
             onClick={() => onNavigate(item.view)}
+            whileTap={{ scale: 0.97 }}
           >
             <span className="feature-top">
               <span className="section-icon">
@@ -167,7 +166,7 @@ export default function Overview({
               Open
               <Icon name="arrow" />
             </span>
-          </button>
+          </Tilt>
         ))}
       </section>
     </>

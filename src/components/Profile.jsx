@@ -216,7 +216,6 @@ export default function Profile({
       <>
         <div className="dashboard-heading">
           <div>
-            <p className="eyebrow">EDIT PROFILE</p>
             <h1>
               More than a username<span className="brand-period">.</span>
             </h1>
@@ -237,7 +236,6 @@ export default function Profile({
     <>
       <div className="dashboard-heading">
         <div>
-          <p className="eyebrow">YOUR PROFILE</p>
           <h1>
             More than a username<span className="brand-period">.</span>
           </h1>

@@ -119,7 +119,6 @@ function PlayerCard({ player, match, invited, onInvite, onMessage }) {
 const heading = (
   <div className="dashboard-heading">
     <div>
-      <p className="eyebrow">FIND PLAYERS</p>
       <h1>
         Your kind of teammates<span className="brand-period">.</span>
       </h1>
