@@ -266,7 +266,11 @@ export default function ProfileForm({
             {GAMES.map((game) => {
               const selected = games.includes(game.id);
               return (
-                <motion.li key={game.id} variants={fadeUp}>
+                <motion.li
+                  key={game.id}
+                  variants={fadeUp}
+                  style={{ "--game-color": game.color }}
+                >
                   <Tilt
                     as={motion.button}
                     max={12}

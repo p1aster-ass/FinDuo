@@ -108,8 +108,10 @@ test("profiles load every gaming field from snake_case columns", async () => {
   });
   assert.deepEqual(await api.load("u1"), {
     stored: true,
+    avatarStored: true,
     exists: true,
     profile: {
+      avatar: null,
       username: "ember",
       region: "eu",
       bio: "",
@@ -122,7 +124,7 @@ test("profiles load every gaming field from snake_case columns", async () => {
   });
   assert.equal(
     calls[0],
-    "profiles?user_id=eq.u1&select=username,region,bio,games,rank,comm_styles,roles,availability",
+    "profiles?user_id=eq.u1&select=username,region,bio,games,rank,comm_styles,roles,availability,avatar",
   );
 });
 
@@ -130,6 +132,7 @@ test("a user without a row loads as not existing yet", async () => {
   const api = createProfileApi(async () => []);
   assert.deepEqual(await api.load("u1"), {
     stored: true,
+    avatarStored: true,
     exists: false,
     profile: null,
   });
@@ -182,6 +185,49 @@ test("updates target the user's row and report a blocked update", async () => {
     status: 403,
     code: "NO_ROWS_UPDATED",
   });
+});
+
+test("without an avatar column, profiles still load and save", async () => {
+  const paths = [];
+  const bodies = [];
+  const missing = (code) =>
+    new DataApiError("x", {
+      code,
+      detail: { message: 'column "avatar" does not exist' },
+    });
+  const api = createProfileApi(async (path, options = {}) => {
+    paths.push(path);
+    if (options.method === "PATCH") {
+      bodies.push(options.body);
+      if ("avatar" in options.body) throw missing("PGRST204");
+      return [{ user_id: "u1" }];
+    }
+    if (path.includes(",avatar")) throw missing("42703");
+    return [{ username: "ember", games: ["cs2"] }];
+  });
+  const loaded = await api.load("u1");
+  assert.equal(loaded.avatarStored, false);
+  assert.equal(loaded.profile.avatar, null);
+  assert.equal(paths.length, 2);
+  await api.update("u1", "Ember", { avatar: { body: "#8b6cff" } });
+  assert.equal(
+    bodies.length,
+    1,
+    "avatar isn't sent once the column is missing",
+  );
+  assert.equal("avatar" in bodies[0], false);
+});
+
+test("a saved avatar is loaded and validated", async () => {
+  const api = createProfileApi(async () => [
+    {
+      username: "ember",
+      avatar: { body: "#8b6cff", head: "crown", eyes: "x" },
+    },
+  ]);
+  const { profile } = await api.load("u1");
+  assert.equal(profile.avatar.head, "crown");
+  assert.equal(profile.avatar.eyes, "round");
 });
 
 test("a taken username is reported on the username field", async () => {
@@ -242,6 +288,7 @@ test("a missing profiles table means not stored yet, other errors surface", asyn
   });
   assert.deepEqual(await missing.load("u1"), {
     stored: false,
+    avatarStored: false,
     exists: false,
     profile: null,
   });

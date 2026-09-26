@@ -1,8 +1,10 @@
 import { DataApiError, isMissingTable } from "./dataApi.js";
+import { normalizeAvatar } from "../data/avatar.js";
 
 // App field -> column in the live public.profiles table (user_id uuid,
 // display_name, username, avatar_url, region, bio, games, rank, comm_styles,
-// roles, availability, created_at, updated_at).
+// roles, availability, avatar, created_at, updated_at). `avatar` (jsonb) comes
+// from db/multiplayer.sql; until it exists the avatar lives in memory only.
 const COLUMNS = {
   username: "username",
   region: "region",
@@ -21,11 +23,13 @@ function fromRow(row) {
   for (const [field, column] of Object.entries(COLUMNS)) {
     profile[field] = row[column] ?? (LISTS.has(field) ? [] : "");
   }
+  profile.avatar = normalizeAvatar(row.avatar);
   return profile;
 }
 
-function toRow(displayName, profile) {
+function toRow(displayName, profile, withAvatar) {
   const row = { display_name: displayName };
+  if (withAvatar && profile.avatar) row.avatar = profile.avatar;
   for (const [field, column] of Object.entries(COLUMNS)) {
     const value = profile[field];
     if (value === undefined) continue;
@@ -53,21 +57,53 @@ function explain(error) {
   return error;
 }
 
+// The avatar column is missing (42703 on read, PGRST204 on write).
+function isMissingAvatar(error) {
+  return (
+    error instanceof DataApiError &&
+    ["42703", "PGRST204"].includes(error.code) &&
+    /avatar/i.test(error.detail?.message ?? "")
+  );
+}
+
 // `stored` is false when the profiles table doesn't exist on this branch;
-// `exists` says whether the signed-in user already has a row.
+// `exists` says whether the signed-in user already has a row;
+// `avatarStored` is false until the avatar column exists.
 export function createProfileApi(request) {
+  let avatarColumn = true;
+
+  // Runs `attempt(withAvatar)`, retrying once without the avatar column if
+  // the database doesn't have it yet.
+  async function withAvatarFallback(attempt) {
+    try {
+      return await attempt(avatarColumn);
+    } catch (error) {
+      if (!avatarColumn || !isMissingAvatar(error)) throw error;
+      avatarColumn = false;
+      return attempt(false);
+    }
+  }
+
   return {
     async load(userId) {
       try {
-        const rows = await request(
-          `profiles?${byUser(userId)}&select=${SELECT}`,
+        const rows = await withAvatarFallback((withAvatar) =>
+          request(
+            `profiles?${byUser(userId)}&select=${SELECT}${withAvatar ? ",avatar" : ""}`,
+          ),
         );
+        const base = { stored: true, avatarStored: avatarColumn };
         return rows?.[0]
-          ? { stored: true, exists: true, profile: fromRow(rows[0]) }
-          : { stored: true, exists: false, profile: null };
+          ? { ...base, exists: true, profile: fromRow(rows[0]) }
+          : { ...base, exists: false, profile: null };
       } catch (error) {
         if (isMissingTable(error)) {
-          return { stored: false, exists: false, profile: null };
+          return {
+            stored: false,
+            avatarStored: false,
+            exists: false,
+            profile: null,
+          };
         }
         throw error;
       }
@@ -76,30 +112,33 @@ export function createProfileApi(request) {
     // Optional fields get empty values in case their columns are NOT NULL.
     // display_name mirrors the Neon Auth name so other players can see it.
     async create(userId, displayName, profile) {
-      await request("profiles", {
-        method: "POST",
-        body: {
-          user_id: userId,
-          ...toRow(displayName, {
-            bio: "",
-            roles: [],
-            availability: [],
-            ...profile,
-          }),
-        },
-        prefer: "return=minimal",
-      }).catch((error) => {
+      await withAvatarFallback((withAvatar) =>
+        request("profiles", {
+          method: "POST",
+          body: {
+            user_id: userId,
+            ...toRow(
+              displayName,
+              { bio: "", roles: [], availability: [], ...profile },
+              withAvatar,
+            ),
+          },
+          prefer: "return=minimal",
+        }),
+      ).catch((error) => {
         throw explain(error);
       });
     },
     // Reads back the row so an update that row-level security silently
     // filtered out (0 rows changed) is reported instead of looking saved.
     async update(userId, displayName, profile) {
-      const rows = await request(`profiles?${byUser(userId)}&select=user_id`, {
-        method: "PATCH",
-        body: toRow(displayName, profile),
-        prefer: "return=representation",
-      }).catch((error) => {
+      const rows = await withAvatarFallback((withAvatar) =>
+        request(`profiles?${byUser(userId)}&select=user_id`, {
+          method: "PATCH",
+          body: toRow(displayName, profile, withAvatar),
+          prefer: "return=representation",
+        }),
+      ).catch((error) => {
         throw explain(error);
       });
       if (!rows?.length) {

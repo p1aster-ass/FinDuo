@@ -1,6 +1,8 @@
 import { authClient } from "../auth/client.js";
 import { createDataApi } from "./dataApi.js";
+import { createPresenceApi } from "./presence.js";
 import { createProfileApi } from "./profiles.js";
+import { createWorldApi } from "./world.js";
 
 // The Data API accepts the Neon Auth JWT, which the SDK exposes as the session token.
 async function getToken() {
@@ -25,3 +27,5 @@ const request = createDataApi({
 });
 
 export const profileApi = createProfileApi(request);
+export const presenceApi = createPresenceApi(request);
+export const worldApi = createWorldApi(request);

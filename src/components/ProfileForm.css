@@ -179,7 +179,8 @@
     color var(--transition);
 }
 
-/* Game cards: each game has its own toy color, pastel until picked. */
+/* Game cards: each game shows its signature color (data/options.js),
+   pastel until picked. */
 .game-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -187,18 +188,6 @@
   margin: 0;
   padding: 0;
   list-style: none;
-}
-.game-grid li:nth-child(4n + 1) {
-  --game-color: var(--toy-grape);
-}
-.game-grid li:nth-child(4n + 2) {
-  --game-color: var(--toy-mint);
-}
-.game-grid li:nth-child(4n + 3) {
-  --game-color: var(--toy-sun);
-}
-.game-grid li:nth-child(4n + 4) {
-  --game-color: var(--toy-pink);
 }
 .game-card {
   position: relative;

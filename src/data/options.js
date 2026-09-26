@@ -1,12 +1,61 @@
+// `color` is each game's signature: its onboarding card, lobby door, and room.
 export const GAMES = [
-  { id: "valorant", name: "Valorant", tag: "VAL", genre: "Tactical shooter" },
-  { id: "cs2", name: "Counter-Strike 2", tag: "CS2", genre: "Tactical shooter" },
-  { id: "lol", name: "League of Legends", tag: "LoL", genre: "MOBA" },
-  { id: "overwatch2", name: "Overwatch 2", tag: "OW2", genre: "Hero shooter" },
-  { id: "apex", name: "Apex Legends", tag: "APX", genre: "Battle royale" },
-  { id: "r6siege", name: "Rainbow Six Siege", tag: "R6S", genre: "Tactical shooter" },
-  { id: "rocketleague", name: "Rocket League", tag: "RL", genre: "Vehicle soccer" },
-  { id: "fortnite", name: "Fortnite", tag: "FN", genre: "Battle royale" },
+  {
+    id: "valorant",
+    name: "Valorant",
+    tag: "VAL",
+    genre: "Tactical shooter",
+    color: "#ff6fa8",
+  },
+  {
+    id: "cs2",
+    name: "Counter-Strike 2",
+    tag: "CS2",
+    genre: "Tactical shooter",
+    color: "#ffc53d",
+  },
+  {
+    id: "lol",
+    name: "League of Legends",
+    tag: "LoL",
+    genre: "MOBA",
+    color: "#8b6cff",
+  },
+  {
+    id: "overwatch2",
+    name: "Overwatch 2",
+    tag: "OW2",
+    genre: "Hero shooter",
+    color: "#ff6d00",
+  },
+  {
+    id: "apex",
+    name: "Apex Legends",
+    tag: "APX",
+    genre: "Battle royale",
+    color: "#ff5a5a",
+  },
+  {
+    id: "r6siege",
+    name: "Rainbow Six Siege",
+    tag: "R6S",
+    genre: "Tactical shooter",
+    color: "#4d9dff",
+  },
+  {
+    id: "rocketleague",
+    name: "Rocket League",
+    tag: "RL",
+    genre: "Vehicle soccer",
+    color: "#2ec4a0",
+  },
+  {
+    id: "fortnite",
+    name: "Fortnite",
+    tag: "FN",
+    genre: "Battle royale",
+    color: "#b86cff",
+  },
 ];
 
 export const REGIONS = [
@@ -32,8 +81,18 @@ export const RANKS = [
 export const COMM_STYLES = [
   { id: "mic", label: "Mic Required", icon: "mic", excludes: "ping" },
   { id: "ping", label: "Ping Only", icon: "ping", excludes: "mic" },
-  { id: "chill", label: "Chill / Casual", icon: "chill", excludes: "competitive" },
-  { id: "competitive", label: "Highly Competitive", icon: "flame", excludes: "chill" },
+  {
+    id: "chill",
+    label: "Chill / Casual",
+    icon: "chill",
+    excludes: "competitive",
+  },
+  {
+    id: "competitive",
+    label: "Highly Competitive",
+    icon: "flame",
+    excludes: "chill",
+  },
 ];
 
 export const ROLES = [
