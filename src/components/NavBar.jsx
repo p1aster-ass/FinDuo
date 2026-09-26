@@ -1,9 +1,16 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import Brand from "./Brand.jsx";
 import Icon from "./Icon.jsx";
 import ThemeToggle from "./ThemeToggle.jsx";
 
-export default function NavBar({ user, onSignOut }) {
+const NAV_ITEMS = [
+  { view: "overview", label: "Overview", icon: "grid" },
+  { view: "discover", label: "Find players", icon: "users" },
+  { view: "messages", label: "Messages", icon: "chat" },
+  { view: "profile", label: "Profile", icon: "gamepad" },
+];
+
+export default function NavBar({ user, view, unread, onNavigate, onSignOut }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   async function signOut() {
@@ -22,31 +29,35 @@ export default function NavBar({ user, onSignOut }) {
       <div className="navbar page-container">
         <Brand />
         <nav className="main-nav" aria-label="Main navigation">
-          <a href="#main-content" aria-current="page">
-            <Icon name="grid" />
-            Overview
-          </a>
-          <button
-            type="button"
-            disabled
-            title="Player discovery is coming soon"
-          >
-            <Icon name="users" />
-            Find players<span className="soon-tag">Soon</span>
-          </button>
-          <button type="button" disabled title="Messaging is coming soon">
-            <Icon name="chat" />
-            Messages<span className="soon-tag">Soon</span>
-          </button>
+          {NAV_ITEMS.map((item) => (
+            <button
+              key={item.view}
+              type="button"
+              aria-current={view === item.view ? "page" : undefined}
+              onClick={() => onNavigate(item.view)}
+            >
+              <Icon name={item.icon} />
+              {item.label}
+              {item.view === "messages" && unread > 0 && (
+                <span className="nav-count">
+                  {unread}
+                  <span className="visually-hidden"> unread</span>
+                </span>
+              )}
+            </button>
+          ))}
         </nav>
         <div className="nav-account">
           <ThemeToggle />
-          <span
+          <button
+            type="button"
             className="user-avatar"
-            aria-label={`Signed in as ${user.displayName || user.email || "Player"}`}
+            onClick={() => onNavigate("profile")}
+            aria-label={`Your profile (${user.displayName || user.email || "Player"})`}
+            title="Your profile"
           >
             {(user.displayName || user.email || "P").charAt(0).toUpperCase()}
-          </span>
+          </button>
           <button
             className="icon-button"
             type="button"

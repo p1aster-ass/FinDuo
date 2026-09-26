@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import Brand from "./Brand.jsx";
 import Icon from "./Icon.jsx";
 import ThemeToggle from "./ThemeToggle.jsx";
+import { authErrorMessage } from "../auth/authActions.js";
 
 function ProviderIcon({ provider }) {
   return provider === "Google" ? (
@@ -31,6 +32,7 @@ export default function AuthGate({ auth }) {
   const [showPassword, setShowPassword] = useState(false);
   const [pending, setPending] = useState(false);
   const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
   const busy = useRef(false);
   const isRegister = mode === "signup";
 
@@ -48,25 +50,33 @@ export default function AuthGate({ auth }) {
       );
       return;
     }
-    const data = event ? new FormData(event.currentTarget) : null;
+    const form = event?.currentTarget;
+    const data = form ? new FormData(form) : null;
     busy.current = true;
     setPending(true);
     setNotice("");
+    setError("");
     try {
-      await action(
+      const result = await action(
         provider
           ? provider.toLowerCase()
-          : { email: data.get("email").trim(), password: data.get("password") },
+          : {
+              email: data.get("email"),
+              password: data.get("password"),
+              ...(isRegister && {
+                displayName: data.get("displayName"),
+                confirmPassword: data.get("confirmPassword"),
+              }),
+            },
       );
+      form?.reset();
       setNotice(
-        isRegister && !provider
-          ? "Check your email for any next steps to complete your account."
+        isRegister && !provider && !result?.token
+          ? "Account created. If email verification is required, complete it before signing in."
           : "Waiting for your account to finish signing in…",
       );
-    } catch {
-      setNotice(
-        "We couldn’t complete your request. Please check your details and try again.",
-      );
+    } catch (error) {
+      setError(authErrorMessage(error));
     } finally {
       busy.current = false;
       setPending(false);
@@ -76,6 +86,7 @@ export default function AuthGate({ auth }) {
   function changeMode(next) {
     setMode(next);
     setNotice("");
+    setError("");
     setShowPassword(false);
   }
 
@@ -143,7 +154,25 @@ export default function AuthGate({ auth }) {
             className="auth-form"
             onSubmit={authenticate}
             aria-busy={pending}
+            aria-describedby="auth-notice"
           >
+            {isRegister && (
+              <div className="form-field">
+                <label htmlFor="displayName">Display name</label>
+                <div className="input-wrap">
+                  <Icon name="users" />
+                  <input
+                    id="displayName"
+                    name="displayName"
+                    type="text"
+                    autoComplete="nickname"
+                    placeholder="Your player name"
+                    required
+                    disabled={pending}
+                  />
+                </div>
+              </div>
+            )}
             <div className="form-field">
               <label htmlFor="email">Email address</label>
               <div className="input-wrap">
@@ -173,6 +202,8 @@ export default function AuthGate({ auth }) {
                   placeholder={
                     isRegister ? "Choose your password" : "Enter your password"
                   }
+                  minLength={isRegister ? 8 : undefined}
+                  maxLength={isRegister ? 128 : undefined}
                   required
                   disabled={pending}
                 />
@@ -187,9 +218,26 @@ export default function AuthGate({ auth }) {
                 </button>
               </div>
             </div>
+            {isRegister && (
+              <div className="form-field">
+                <label htmlFor="confirmPassword">Confirm password</label>
+                <div className="input-wrap">
+                  <Icon name="lock" />
+                  <input
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    type={showPassword ? "text" : "password"}
+                    autoComplete="new-password"
+                    placeholder="Enter your password again"
+                    required
+                    disabled={pending}
+                  />
+                </div>
+              </div>
+            )}
             <button
               className="button button-primary auth-submit"
-              disabled={pending}
+              disabled={pending || auth?.configured === false}
               type="submit"
             >
               <span>
@@ -202,6 +250,7 @@ export default function AuthGate({ auth }) {
               <Icon name="arrow" />
             </button>
           </form>
+          {auth?.signInWithProvider && <>
           <div className="auth-divider">
             <span>or continue with</span>
           </div>
@@ -220,9 +269,15 @@ export default function AuthGate({ auth }) {
               </button>
             ))}
           </div>
-          <p className="auth-notice" role="status" aria-live="polite">
-            {notice}
+          </>}
+          <p id="auth-notice" className="auth-notice" role={error || auth?.error ? "alert" : "status"}>
+            {error || auth?.error || notice}
           </p>
+          {auth?.error && auth.refreshSession && (
+            <button type="button" className="text-button" onClick={() => auth.refreshSession()}>
+              Retry session check
+            </button>
+          )}
           <p className="auth-bottom">
             {isRegister ? "Already part of the squad?" : "New to FinDuo?"}{" "}
             <button
