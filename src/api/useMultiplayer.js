@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { worldApi } from "./index.js";
 import { CHAT_HISTORY_SECONDS, WorldUnavailableError } from "./world.js";
 import { localPlayer } from "../three/localPlayer.js";
+import { respondToInvite } from "../lib/privateInvites.js";
 
 const SYNC_MS = 500;
 const INVITES_MS = 2500;
@@ -233,14 +234,13 @@ export function useMultiplayer({
   );
 
   const answer = useCallback(
-    async (inviteId, status) => {
-      try {
-        await worldApi.answer(inviteId, status);
-        await refreshInvites();
-      } catch (error) {
-        setState((current) => ({ ...current, error: error.message }));
-      }
-    },
+    (inviteId, status) => respondToInvite(
+      worldApi.answer,
+      refreshInvites,
+      (error) => setState((current) => ({ ...current, error: error.message })),
+      inviteId,
+      status,
+    ),
     [refreshInvites],
   );
 

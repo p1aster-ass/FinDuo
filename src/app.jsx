@@ -28,6 +28,7 @@ import { avatarFor, randomAvatar } from "./data/avatar.js";
 import { GAME_BY_ID } from "./data/options.js";
 import { loadBlocked, saveBlocked } from "./lib/blocks.js";
 import { latestBubbles } from "./lib/chat.js";
+import { answerAndJoin } from "./lib/privateInvites.js";
 import { isProfileComplete, scoreMatch } from "./lib/match.js";
 import { useMediaQuery } from "./lib/useMediaQuery.js";
 import { useTheme } from "./lib/useTheme.js";
@@ -222,11 +223,8 @@ function App({ auth }) {
   }
 
   async function answerInvite(id, status) {
-    await mp.answer(id, status);
-    if (status === "accepted") {
-      const invite = mp.invites.find((item) => item.id === id);
-      if (invite) joinPrivate(`p:${id}`, invite);
-    }
+    const invite = mp.invites.find((item) => item.id === id);
+    await answerAndJoin(mp.answer, id, status, invite, joinPrivate);
   }
 
   async function signOut() {

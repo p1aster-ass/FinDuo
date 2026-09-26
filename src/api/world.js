@@ -171,14 +171,27 @@ export function createWorldApi(request) {
       );
       return rows?.[0]?.id ?? null;
     },
-    answer(inviteId, status) {
-      return guard(
-        request(`private_rooms?id=${eq(inviteId)}`, {
+    async answer(inviteId, status) {
+      if (!["accepted", "declined", "cancelled"].includes(status)) {
+        throw new DataApiError("That invitation response is not valid.", {
+          status: 400,
+          code: "INVALID_INVITE_STATUS",
+        });
+      }
+      const rows = await guard(
+        request(`private_rooms?id=${eq(inviteId)}&select=id,status`, {
           method: "PATCH",
           body: { status },
-          prefer: "return=minimal",
+          prefer: "return=representation",
         }),
       );
+      if (rows?.length !== 1 || rows[0].id !== inviteId || rows[0].status !== status) {
+        throw new DataApiError("This invitation could not be updated. It may have already been answered.", {
+          status: 409,
+          code: "INVITE_NOT_UPDATED",
+        });
+      }
+      return true;
     },
   };
 }

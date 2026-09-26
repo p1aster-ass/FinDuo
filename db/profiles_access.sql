@@ -24,7 +24,7 @@ grant select, insert, update on public.profiles to authenticated;
 alter table public.profiles enable row level security;
 
 -- Every signed-in player can read profiles (Find players needs this).
--- Change `true` to `user_id = auth.user_id()::uuid` to keep profiles private.
+-- Change `true` to `user_id = (select auth.user_id()::uuid)` to keep profiles private.
 drop policy if exists "finduo: signed-in players read profiles" on public.profiles;
 create policy "finduo: signed-in players read profiles"
   on public.profiles for select
@@ -35,11 +35,11 @@ drop policy if exists "finduo: players create their own profile" on public.profi
 create policy "finduo: players create their own profile"
   on public.profiles for insert
   to authenticated
-  with check (user_id = auth.user_id()::uuid);
+  with check (user_id = (select auth.user_id()::uuid));
 
 drop policy if exists "finduo: players update their own profile" on public.profiles;
 create policy "finduo: players update their own profile"
   on public.profiles for update
   to authenticated
-  using (user_id = auth.user_id()::uuid)
-  with check (user_id = auth.user_id()::uuid);
+  using (user_id = (select auth.user_id()::uuid))
+  with check (user_id = (select auth.user_id()::uuid));

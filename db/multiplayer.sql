@@ -1,18 +1,75 @@
 -- Multiplayer: avatars, live positions, room chat, and private rooms.
--- NOT APPLIED YET: review, then run once in the Neon SQL Editor on the branch
--- behind VITE_NEON_DATA_API_URL, after db/profiles_access.sql and
--- db/presence.sql. Then refresh the Data API schema cache (Neon Console →
--- Data API → Refresh schema cache). Until then the app still lets players
--- walk around and customize their avatar, but alone and without chat.
+-- Canonical hardened schema. Install alongside presence and profile access via
+-- db/migrations/2026-09-26_multiplayer_baseline.sql. Refresh the Data API schema
+-- cache afterward. Do not reapply an older version with permissive policies.
 --
 -- Transport: the app polls these tables through the Data API (about once a
 -- second). Rooms are "lobby", a game id (e.g. "valorant"), or "p:<uuid>" for
 -- a private room.
 
+begin;
+
 -- 1. Avatar -------------------------------------------------------------------
 alter table public.profiles add column if not exists avatar jsonb;
 
--- 2. Positions ----------------------------------------------------------------
+-- 2. Private rooms (invite → accept) ------------------------------------------
+create table if not exists public.private_rooms (
+  id uuid primary key default gen_random_uuid(),
+  created_by uuid not null default auth.user_id()::uuid
+    constraint private_rooms_created_by_fkey
+    references public.profiles (user_id) on delete cascade,
+  invitee uuid not null
+    constraint private_rooms_invitee_fkey
+    references public.profiles (user_id) on delete cascade,
+  status text not null default 'pending'
+    check (status in ('pending', 'accepted', 'declined', 'cancelled')),
+  created_at timestamptz not null default now(),
+  check (created_by <> invitee)
+);
+create index if not exists private_rooms_invitee_idx
+  on public.private_rooms (invitee, created_at desc);
+create index if not exists private_rooms_created_by_idx
+  on public.private_rooms (created_by, created_at desc);
+
+alter table public.private_rooms enable row level security;
+drop policy if exists "finduo: see your private rooms" on public.private_rooms;
+create policy "finduo: see your private rooms"
+  on public.private_rooms for select to authenticated
+  using ((select auth.user_id()::uuid) in (created_by, invitee));
+drop policy if exists "finduo: invite someone" on public.private_rooms;
+create policy "finduo: invite someone"
+  on public.private_rooms for insert to authenticated
+  with check (created_by = (select auth.user_id()::uuid) and status = 'pending');
+-- The invitee accepts or declines; the inviter can cancel.
+drop policy if exists "finduo: answer an invite" on public.private_rooms;
+create policy "finduo: answer an invite"
+  on public.private_rooms for update to authenticated
+  using (status = 'pending' and (select auth.user_id()::uuid) in (created_by, invitee))
+  with check (
+    (invitee = (select auth.user_id()::uuid) and status in ('accepted', 'declined'))
+    or (created_by = (select auth.user_id()::uuid) and status = 'cancelled')
+  );
+-- Override broad table privileges inherited from database default grants.
+revoke all on public.private_rooms from public, anonymous, authenticated;
+grant select, insert on public.private_rooms to authenticated;
+grant update (status) on public.private_rooms to authenticated;
+
+-- True when the caller is a member of an accepted private room.
+-- Bind helper references at creation time; retain caller privileges and RLS.
+create or replace function public.in_private_room(room_key text)
+returns boolean language sql stable security invoker set search_path = pg_catalog
+begin atomic
+  select exists (
+    select 1 from public.private_rooms
+    where room_key = 'p:' || id::text
+      and status = 'accepted'
+      and (select auth.user_id()::uuid) in (created_by, invitee)
+  );
+end;
+revoke all on function public.in_private_room(text) from public, anonymous;
+grant execute on function public.in_private_room(text) to authenticated;
+
+-- 3. Positions ----------------------------------------------------------------
 -- One row per player: where they are right now. Rows older than ~15 seconds
 -- are treated as gone by the app.
 create table if not exists public.world_positions (
@@ -53,60 +110,32 @@ create trigger world_positions_touch
 alter table public.world_positions enable row level security;
 drop policy if exists "finduo: see players in the world" on public.world_positions;
 create policy "finduo: see players in the world"
-  on public.world_positions for select to authenticated using (true);
+  on public.world_positions for select to authenticated
+  using (room not like 'p:%' or public.in_private_room(room));
 drop policy if exists "finduo: place yourself" on public.world_positions;
 create policy "finduo: place yourself"
   on public.world_positions for insert to authenticated
-  with check (user_id = auth.user_id()::uuid);
+  with check (
+    user_id = (select auth.user_id()::uuid)
+    and (room not like 'p:%' or public.in_private_room(room))
+  );
 drop policy if exists "finduo: move yourself" on public.world_positions;
 create policy "finduo: move yourself"
   on public.world_positions for update to authenticated
-  using (user_id = auth.user_id()::uuid)
-  with check (user_id = auth.user_id()::uuid);
+  using (
+    user_id = (select auth.user_id()::uuid)
+    and (room not like 'p:%' or public.in_private_room(room))
+  )
+  with check (
+    user_id = (select auth.user_id()::uuid)
+    and (room not like 'p:%' or public.in_private_room(room))
+  );
 drop policy if exists "finduo: leave the world" on public.world_positions;
 create policy "finduo: leave the world"
   on public.world_positions for delete to authenticated
-  using (user_id = auth.user_id()::uuid);
+  using (user_id = (select auth.user_id()::uuid));
+revoke all on public.world_positions from public, anonymous, authenticated;
 grant select, insert, update, delete on public.world_positions to authenticated;
-
--- 3. Private rooms (invite → accept) ------------------------------------------
-create table if not exists public.private_rooms (
-  id uuid primary key default gen_random_uuid(),
-  created_by uuid not null default auth.user_id()::uuid
-    constraint private_rooms_created_by_fkey
-    references public.profiles (user_id) on delete cascade,
-  invitee uuid not null
-    constraint private_rooms_invitee_fkey
-    references public.profiles (user_id) on delete cascade,
-  status text not null default 'pending'
-    check (status in ('pending', 'accepted', 'declined', 'cancelled')),
-  created_at timestamptz not null default now(),
-  check (created_by <> invitee)
-);
-create index if not exists private_rooms_invitee_idx
-  on public.private_rooms (invitee, created_at desc);
-create index if not exists private_rooms_created_by_idx
-  on public.private_rooms (created_by, created_at desc);
-
-alter table public.private_rooms enable row level security;
-drop policy if exists "finduo: see your private rooms" on public.private_rooms;
-create policy "finduo: see your private rooms"
-  on public.private_rooms for select to authenticated
-  using (auth.user_id()::uuid in (created_by, invitee));
-drop policy if exists "finduo: invite someone" on public.private_rooms;
-create policy "finduo: invite someone"
-  on public.private_rooms for insert to authenticated
-  with check (created_by = auth.user_id()::uuid and status = 'pending');
--- The invitee accepts or declines; the inviter can cancel.
-drop policy if exists "finduo: answer an invite" on public.private_rooms;
-create policy "finduo: answer an invite"
-  on public.private_rooms for update to authenticated
-  using (auth.user_id()::uuid in (created_by, invitee))
-  with check (
-    (invitee = auth.user_id()::uuid and status in ('accepted', 'declined'))
-    or (created_by = auth.user_id()::uuid and status = 'cancelled')
-  );
-grant select, insert, update on public.private_rooms to authenticated;
 
 -- 4. Chat ---------------------------------------------------------------------
 create table if not exists public.chat_messages (
@@ -121,19 +150,6 @@ create table if not exists public.chat_messages (
 create index if not exists chat_messages_room_idx
   on public.chat_messages (room, id desc);
 
--- True when the caller is a member of an accepted private room.
-create or replace function public.in_private_room(room_key text)
-returns boolean language sql stable security definer set search_path = public as $$
-  select exists (
-    select 1 from public.private_rooms
-    where room_key = 'p:' || id::text
-      and status = 'accepted'
-      and auth.user_id()::uuid in (created_by, invitee)
-  );
-$$;
-revoke all on function public.in_private_room(text) from public;
-grant execute on function public.in_private_room(text) to authenticated;
-
 alter table public.chat_messages enable row level security;
 drop policy if exists "finduo: read room chat" on public.chat_messages;
 create policy "finduo: read room chat"
@@ -143,10 +159,13 @@ drop policy if exists "finduo: talk in rooms" on public.chat_messages;
 create policy "finduo: talk in rooms"
   on public.chat_messages for insert to authenticated
   with check (
-    user_id = auth.user_id()::uuid
+    user_id = (select auth.user_id()::uuid)
     and (room not like 'p:%' or public.in_private_room(room))
   );
+revoke all on public.chat_messages from public, anonymous, authenticated;
 grant select, insert on public.chat_messages to authenticated;
+revoke all on sequence public.chat_messages_id_seq from public, anonymous, authenticated;
+grant usage on sequence public.chat_messages_id_seq to authenticated;
 
 -- At most 5 messages per 10 seconds per player (the app shows "slow down").
 create or replace function public.limit_chat_rate()
@@ -171,3 +190,9 @@ create trigger chat_messages_rate
 -- and positions older than an hour are never shown by the app.
 --   delete from public.chat_messages where created_at < now() - interval '1 day';
 --   delete from public.world_positions where updated_at < now() - interval '1 hour';
+
+-- Trigger functions are not client RPCs.
+revoke all on function public.touch_world_position() from public, anonymous, authenticated;
+revoke all on function public.limit_chat_rate() from public, anonymous, authenticated;
+
+commit;

@@ -1,0 +1,341 @@
+-- FinDuo multiplayer baseline for the existing Neon Auth + profiles database.
+-- Install order: preflight -> profile access -> presence -> hardened multiplayer.
+-- The gaming columns from db/add_gaming_fields.sql must already exist (they do
+-- in production). Do not rerun its non-idempotent rank constraint blindly.
+-- No accounts, profile rows, or other user data are deleted or rewritten.
+-- Test this exact file on a disposable production child branch before applying.
+-- Repeat execution is supported for this baseline, but unexpected role/policy
+-- drift fails closed. Refresh the Neon Data API schema cache after commit.
+
+begin;
+set local lock_timeout = '5s';
+set local statement_timeout = '60s';
+
+do $preflight$
+begin
+  if to_regclass('public.profiles') is null
+     or to_regprocedure('auth.user_id()') is null then
+    raise exception 'Existing Neon Auth and public.profiles are required';
+  end if;
+  if exists (
+    select 1 from unnest(array['user_id', 'username', 'display_name', 'region',
+      'bio', 'games', 'rank', 'comm_styles', 'roles', 'availability']) as required(name)
+    where not exists (
+      select 1 from information_schema.columns
+      where table_schema = 'public' and table_name = 'profiles'
+        and column_name = required.name
+    )
+  ) then
+    raise exception 'Missing profile prerequisites; inspect before installing';
+  end if;
+  if exists (
+    select 1 from pg_roles r
+    where r.rolname in ('authenticated', 'anonymous')
+      and (r.rolsuper or r.rolbypassrls or exists (
+        select 1 from pg_roles inherited
+        where inherited.oid <> r.oid and pg_has_role(r.oid, inherited.oid, 'MEMBER')
+      ))
+  ) then
+    raise exception 'Client roles have unexpected inherited/bypass privileges';
+  end if;
+  if exists (
+    select 1 from pg_policies p
+    where p.schemaname = 'public'
+      and p.tablename in ('profiles', 'private_rooms', 'world_positions', 'chat_messages')
+      and not ((p.tablename, p.policyname) in (
+        ('profiles', 'finduo: signed-in players read profiles'),
+        ('profiles', 'finduo: players create their own profile'),
+        ('profiles', 'finduo: players update their own profile'),
+        ('private_rooms', 'finduo: see your private rooms'),
+        ('private_rooms', 'finduo: invite someone'),
+        ('private_rooms', 'finduo: answer an invite'),
+        ('world_positions', 'finduo: see players in the world'),
+        ('world_positions', 'finduo: place yourself'),
+        ('world_positions', 'finduo: move yourself'),
+        ('world_positions', 'finduo: leave the world'),
+        ('chat_messages', 'finduo: read room chat'),
+        ('chat_messages', 'finduo: talk in rooms')
+      ))
+  ) then
+    raise exception 'Unexpected policies found; inspect before installing';
+  end if;
+end;
+$preflight$;
+
+-- Canonical components follow, in dependency order. Keep these synchronized
+-- with their source files; src/api/multiplayerSchema.test.js checks this.
+
+-- BEGIN PROFILE ACCESS
+grant usage on schema public to authenticated;
+grant select, insert, update on public.profiles to authenticated;
+
+-- 3. Row-level security policies.
+alter table public.profiles enable row level security;
+
+-- Every signed-in player can read profiles (Find players needs this).
+-- Change `true` to `user_id = (select auth.user_id()::uuid)` to keep profiles private.
+drop policy if exists "finduo: signed-in players read profiles" on public.profiles;
+create policy "finduo: signed-in players read profiles"
+  on public.profiles for select
+  to authenticated
+  using (true);
+
+drop policy if exists "finduo: players create their own profile" on public.profiles;
+create policy "finduo: players create their own profile"
+  on public.profiles for insert
+  to authenticated
+  with check (user_id = (select auth.user_id()::uuid));
+
+drop policy if exists "finduo: players update their own profile" on public.profiles;
+create policy "finduo: players update their own profile"
+  on public.profiles for update
+  to authenticated
+  using (user_id = (select auth.user_id()::uuid))
+  with check (user_id = (select auth.user_id()::uuid));
+
+-- END PROFILE ACCESS
+
+-- BEGIN PRESENCE
+-- Online presence for the game rooms.
+-- Included in the multiplayer baseline migration. For standalone installation,
+-- review, then run in the Neon SQL Editor on the branch
+-- behind VITE_NEON_DATA_API_URL. Afterwards refresh the Data API schema cache
+-- (Neon Console → Data API → Refresh schema cache), or the app keeps showing
+-- "online status isn't set up yet".
+--
+-- How it works: while someone has FinDuo open, the app calls touch_presence()
+-- every 30 seconds. A room shows players who share that game and were seen in
+-- the last 5 minutes. Rooms read other players' profiles, so the "signed-in
+-- players read profiles" policy from db/profiles_access.sql must be in place.
+
+alter table public.profiles
+  add column if not exists last_seen_at timestamptz;
+
+create index if not exists profiles_last_seen_at_idx
+  on public.profiles (last_seen_at desc);
+
+create index if not exists profiles_games_idx
+  on public.profiles using gin (games);
+
+-- Stamps the caller's own row with the database clock, so a client can't fake
+-- its time or touch anyone else's row. Runs with the caller's permissions, so
+-- the existing row-level security update policy still applies.
+-- The SQL-standard body binds auth.user_id() at installation time, so callers
+-- do not need schema USAGE to resolve its name at runtime. EXECUTE and RLS apply.
+create or replace function public.touch_presence()
+returns void
+language sql
+security invoker
+set search_path = pg_catalog
+begin atomic
+  update public.profiles
+  set last_seen_at = now()
+  where user_id = (select auth.user_id()::uuid);
+end;
+
+revoke all on function public.touch_presence() from public, anonymous;
+grant execute on function public.touch_presence() to authenticated;
+
+-- END PRESENCE
+
+-- BEGIN MULTIPLAYER
+-- Multiplayer: avatars, live positions, room chat, and private rooms.
+-- Canonical hardened schema. Install alongside presence and profile access via
+-- db/migrations/2026-09-26_multiplayer_baseline.sql. Refresh the Data API schema
+-- cache afterward. Do not reapply an older version with permissive policies.
+--
+-- Transport: the app polls these tables through the Data API (about once a
+-- second). Rooms are "lobby", a game id (e.g. "valorant"), or "p:<uuid>" for
+-- a private room.
+
+
+-- 1. Avatar -------------------------------------------------------------------
+alter table public.profiles add column if not exists avatar jsonb;
+
+-- 2. Private rooms (invite → accept) ------------------------------------------
+create table if not exists public.private_rooms (
+  id uuid primary key default gen_random_uuid(),
+  created_by uuid not null default auth.user_id()::uuid
+    constraint private_rooms_created_by_fkey
+    references public.profiles (user_id) on delete cascade,
+  invitee uuid not null
+    constraint private_rooms_invitee_fkey
+    references public.profiles (user_id) on delete cascade,
+  status text not null default 'pending'
+    check (status in ('pending', 'accepted', 'declined', 'cancelled')),
+  created_at timestamptz not null default now(),
+  check (created_by <> invitee)
+);
+create index if not exists private_rooms_invitee_idx
+  on public.private_rooms (invitee, created_at desc);
+create index if not exists private_rooms_created_by_idx
+  on public.private_rooms (created_by, created_at desc);
+
+alter table public.private_rooms enable row level security;
+drop policy if exists "finduo: see your private rooms" on public.private_rooms;
+create policy "finduo: see your private rooms"
+  on public.private_rooms for select to authenticated
+  using ((select auth.user_id()::uuid) in (created_by, invitee));
+drop policy if exists "finduo: invite someone" on public.private_rooms;
+create policy "finduo: invite someone"
+  on public.private_rooms for insert to authenticated
+  with check (created_by = (select auth.user_id()::uuid) and status = 'pending');
+-- The invitee accepts or declines; the inviter can cancel.
+drop policy if exists "finduo: answer an invite" on public.private_rooms;
+create policy "finduo: answer an invite"
+  on public.private_rooms for update to authenticated
+  using (status = 'pending' and (select auth.user_id()::uuid) in (created_by, invitee))
+  with check (
+    (invitee = (select auth.user_id()::uuid) and status in ('accepted', 'declined'))
+    or (created_by = (select auth.user_id()::uuid) and status = 'cancelled')
+  );
+-- Override broad table privileges inherited from database default grants.
+revoke all on public.private_rooms from public, anonymous, authenticated;
+grant select, insert on public.private_rooms to authenticated;
+grant update (status) on public.private_rooms to authenticated;
+
+-- True when the caller is a member of an accepted private room.
+-- Bind helper references at creation time; retain caller privileges and RLS.
+create or replace function public.in_private_room(room_key text)
+returns boolean language sql stable security invoker set search_path = pg_catalog
+begin atomic
+  select exists (
+    select 1 from public.private_rooms
+    where room_key = 'p:' || id::text
+      and status = 'accepted'
+      and (select auth.user_id()::uuid) in (created_by, invitee)
+  );
+end;
+revoke all on function public.in_private_room(text) from public, anonymous;
+grant execute on function public.in_private_room(text) to authenticated;
+
+-- 3. Positions ----------------------------------------------------------------
+-- One row per player: where they are right now. Rows older than ~15 seconds
+-- are treated as gone by the app.
+create table if not exists public.world_positions (
+  user_id uuid primary key default auth.user_id()::uuid
+    constraint world_positions_user_id_fkey
+    references public.profiles (user_id) on delete cascade,
+  room text not null check (room ~ '^(lobby|[a-z0-9]{2,20}|p:[0-9a-f-]{36})$'),
+  x real not null default 0,
+  z real not null default 0,
+  facing real not null default 0,
+  emote text check (emote in ('jump', 'spin', 'dance', 'heart')),
+  emote_at timestamptz,
+  updated_at timestamptz not null default now()
+);
+create index if not exists world_positions_room_idx
+  on public.world_positions (room, updated_at desc);
+
+-- Timestamps come from the database clock, not the browser.
+-- A new emote is signalled by sending a new emote_at; the database then stamps
+-- it with its own clock.
+create or replace function public.touch_world_position()
+returns trigger language plpgsql as $$
+begin
+  new.updated_at = now();
+  if new.emote is null then
+    new.emote_at = null;
+  elsif tg_op = 'INSERT' or new.emote_at is distinct from old.emote_at then
+    new.emote_at = now();
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists world_positions_touch on public.world_positions;
+create trigger world_positions_touch
+  before insert or update on public.world_positions
+  for each row execute function public.touch_world_position();
+
+alter table public.world_positions enable row level security;
+drop policy if exists "finduo: see players in the world" on public.world_positions;
+create policy "finduo: see players in the world"
+  on public.world_positions for select to authenticated
+  using (room not like 'p:%' or public.in_private_room(room));
+drop policy if exists "finduo: place yourself" on public.world_positions;
+create policy "finduo: place yourself"
+  on public.world_positions for insert to authenticated
+  with check (
+    user_id = (select auth.user_id()::uuid)
+    and (room not like 'p:%' or public.in_private_room(room))
+  );
+drop policy if exists "finduo: move yourself" on public.world_positions;
+create policy "finduo: move yourself"
+  on public.world_positions for update to authenticated
+  using (
+    user_id = (select auth.user_id()::uuid)
+    and (room not like 'p:%' or public.in_private_room(room))
+  )
+  with check (
+    user_id = (select auth.user_id()::uuid)
+    and (room not like 'p:%' or public.in_private_room(room))
+  );
+drop policy if exists "finduo: leave the world" on public.world_positions;
+create policy "finduo: leave the world"
+  on public.world_positions for delete to authenticated
+  using (user_id = (select auth.user_id()::uuid));
+revoke all on public.world_positions from public, anonymous, authenticated;
+grant select, insert, update, delete on public.world_positions to authenticated;
+
+-- 4. Chat ---------------------------------------------------------------------
+create table if not exists public.chat_messages (
+  id bigint generated always as identity primary key,
+  room text not null check (room ~ '^(lobby|[a-z0-9]{2,20}|p:[0-9a-f-]{36})$'),
+  user_id uuid not null default auth.user_id()::uuid
+    constraint chat_messages_user_id_fkey
+    references public.profiles (user_id) on delete cascade,
+  body text not null check (char_length(btrim(body)) between 1 and 200),
+  created_at timestamptz not null default now()
+);
+create index if not exists chat_messages_room_idx
+  on public.chat_messages (room, id desc);
+
+alter table public.chat_messages enable row level security;
+drop policy if exists "finduo: read room chat" on public.chat_messages;
+create policy "finduo: read room chat"
+  on public.chat_messages for select to authenticated
+  using (room not like 'p:%' or public.in_private_room(room));
+drop policy if exists "finduo: talk in rooms" on public.chat_messages;
+create policy "finduo: talk in rooms"
+  on public.chat_messages for insert to authenticated
+  with check (
+    user_id = (select auth.user_id()::uuid)
+    and (room not like 'p:%' or public.in_private_room(room))
+  );
+revoke all on public.chat_messages from public, anonymous, authenticated;
+grant select, insert on public.chat_messages to authenticated;
+revoke all on sequence public.chat_messages_id_seq from public, anonymous, authenticated;
+grant usage on sequence public.chat_messages_id_seq to authenticated;
+
+-- At most 5 messages per 10 seconds per player (the app shows "slow down").
+create or replace function public.limit_chat_rate()
+returns trigger language plpgsql as $$
+begin
+  new.created_at = now();
+  if (
+    select count(*) from public.chat_messages
+    where user_id = new.user_id and created_at > now() - interval '10 seconds'
+  ) >= 5 then
+    raise exception 'chat rate limit' using errcode = 'P0001';
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists chat_messages_rate on public.chat_messages;
+create trigger chat_messages_rate
+  before insert on public.chat_messages
+  for each row execute function public.limit_chat_rate();
+
+-- Housekeeping (optional, e.g. from a scheduled job): chat older than a day
+-- and positions older than an hour are never shown by the app.
+--   delete from public.chat_messages where created_at < now() - interval '1 day';
+--   delete from public.world_positions where updated_at < now() - interval '1 hour';
+
+-- Trigger functions are not client RPCs.
+revoke all on function public.touch_world_position() from public, anonymous, authenticated;
+revoke all on function public.limit_chat_rate() from public, anonymous, authenticated;
+
+
+-- END MULTIPLAYER
+
+commit;

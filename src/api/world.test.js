@@ -121,7 +121,7 @@ test("invites: send, list with names, and answer", async () => {
   const api = createWorldApi(async (path, options) => {
     calls.push({ path, options });
     if (options?.method === "POST") return [{ id: "room-1" }];
-    if (options?.method === "PATCH") return null;
+    if (options?.method === "PATCH") return [{ id: "room-1", status: "accepted" }];
     return [
       {
         id: "room-1",
@@ -139,8 +139,9 @@ test("invites: send, list with names, and answer", async () => {
   assert.match(calls[1].path, /private_rooms_created_by_fkey/);
   assert.equal(invite.fromName, "Ember");
   assert.equal(invite.toName, "rook");
-  await api.answer("room-1", "accepted");
-  assert.equal(calls[2].path, "private_rooms?id=eq.room-1");
+  assert.equal(await api.answer("room-1", "accepted"), true);
+  assert.equal(calls[2].path, "private_rooms?id=eq.room-1&select=id,status");
+  assert.equal(calls[2].options.prefer, "return=representation");
   assert.deepEqual(calls[2].options.body, { status: "accepted" });
 });
 

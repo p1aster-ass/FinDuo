@@ -1,5 +1,6 @@
 -- Online presence for the game rooms.
--- NOT APPLIED YET: review, then run once in the Neon SQL Editor on the branch
+-- Included in the multiplayer baseline migration. For standalone installation,
+-- review, then run in the Neon SQL Editor on the branch
 -- behind VITE_NEON_DATA_API_URL. Afterwards refresh the Data API schema cache
 -- (Neon Console → Data API → Refresh schema cache), or the app keeps showing
 -- "online status isn't set up yet".
@@ -21,16 +22,18 @@ create index if not exists profiles_games_idx
 -- Stamps the caller's own row with the database clock, so a client can't fake
 -- its time or touch anyone else's row. Runs with the caller's permissions, so
 -- the existing row-level security update policy still applies.
+-- The SQL-standard body binds auth.user_id() at installation time, so callers
+-- do not need schema USAGE to resolve its name at runtime. EXECUTE and RLS apply.
 create or replace function public.touch_presence()
 returns void
 language sql
 security invoker
-set search_path = public
-as $$
+set search_path = pg_catalog
+begin atomic
   update public.profiles
   set last_seen_at = now()
-  where user_id = auth.user_id()::uuid;
-$$;
+  where user_id = (select auth.user_id()::uuid);
+end;
 
-revoke all on function public.touch_presence() from public;
+revoke all on function public.touch_presence() from public, anonymous;
 grant execute on function public.touch_presence() to authenticated;
