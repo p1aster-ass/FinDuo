@@ -52,6 +52,12 @@ export function validateCredentials({ email, password, displayName, confirmPassw
   return { email: normalizedEmail, password, name };
 }
 
+export function validateDisplayName(displayName) {
+  const name = typeof displayName === "string" ? displayName.trim() : "";
+  if (!name) throw new AuthActionError("Enter a display name.");
+  return name;
+}
+
 export function createAuthActions(client) {
   async function request(action) {
     if (!client) throw new AuthActionError("Sign-in is not configured. Please contact the site owner.");
@@ -68,5 +74,7 @@ export function createAuthActions(client) {
     signIn: (credentials) => request(() => client.signIn.email(validateCredentials(credentials))),
     signUp: (credentials) => request(() => client.signUp.email(validateCredentials(credentials, true))),
     signOut: () => request(() => client.signOut()),
+    updateDisplayName: (displayName) =>
+      request(() => client.updateUser({ name: validateDisplayName(displayName) })),
   };
 }

@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
+    "test": "node --test \"src/**/*.test.js\"",
     "test:auth": "node --test src/auth/authActions.test.js",
+    "test:api": "node --test src/api/dataApi.test.js",
     "preview": "vite preview"
   },
   "dependencies": {

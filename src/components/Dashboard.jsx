@@ -1,101 +1,89 @@
+import { useRef, useState } from "react";
 import NavBar from "./NavBar.jsx";
+import Overview from "./Overview.jsx";
+import Discover from "./Discover.jsx";
+import Messages from "./Messages.jsx";
+import Profile from "./Profile.jsx";
 import Icon from "./Icon.jsx";
+import { backend } from "../api/backend.js";
+import "./Hub.css";
 
-export default function Dashboard({ auth }) {
+// The signed-in player hub. Screens whose backend doesn't exist yet
+// (see src/api/backend.js) show a "not live yet" state instead of data.
+export default function Dashboard({
+  auth,
+  profile,
+  profileStored,
+  onProfileChange,
+}) {
+  const [view, setView] = useState("overview");
+  const [noticeOpen, setNoticeOpen] = useState(!profileStored);
+  const mainRef = useRef(null);
+  const user = {
+    ...auth.user,
+    displayName: auth.user.displayName || auth.user.email || "Player",
+  };
+
+  function navigate(next) {
+    setView(next);
+    window.scrollTo(0, 0);
+    mainRef.current?.focus({ preventScroll: true });
+  }
+
+  const pages = {
+    overview: <Overview user={user} profile={profile} onNavigate={navigate} />,
+    discover: <Discover profile={profile} available={backend.discovery} />,
+    messages: (
+      <Messages
+        profile={profile}
+        available={backend.messaging}
+        onFindPlayers={() => navigate("discover")}
+      />
+    ),
+    profile: (
+      <Profile
+        user={user}
+        profile={profile}
+        onSave={onProfileChange}
+        onUpdateDisplayName={auth.updateDisplayName}
+      />
+    ),
+  };
+
   return (
     <div className="dashboard">
-      <NavBar user={auth.user} onSignOut={auth.signOut} />
+      <NavBar
+        user={user}
+        view={view}
+        onNavigate={navigate}
+        onSignOut={auth.signOut}
+      />
       <main
         id="main-content"
-        className="page-container dashboard-main"
+        ref={mainRef}
+        className={`page-container dashboard-main hub-main hub-${view}`}
         tabIndex={-1}
       >
-        <div className="dashboard-heading">
-          <div>
-            <p className="eyebrow">YOUR NEXT CHAPTER</p>
-            <h1>
-              Hey, {auth.user.displayName || "player"}
-              <span className="brand-period">.</span>
-            </h1>
+        {noticeOpen && (
+          <div className="hub-notice" role="note">
+            <Icon name="spark" />
+            <p>
+              Your gaming profile isn’t saved to your account on this server, so
+              you’ll set it up again after you sign out or reload.
+            </p>
+            <button
+              type="button"
+              className="icon-button"
+              onClick={() => setNoticeOpen(false)}
+              aria-label="Dismiss notice"
+            >
+              <Icon name="close" />
+            </button>
           </div>
-          <span className="outline-badge">Your player hub</span>
+        )}
+        <div key={view} className="hub-page">
+          {pages[view]}
         </div>
-        <section className="hero glass-panel" aria-labelledby="hero-title">
-          <div className="hero-copy">
-            <p className="eyebrow">FIND YOUR PEOPLE. PLAY YOUR GAME.</p>
-            <h2 id="hero-title">
-              Great games start
-              <br />
-              with the right duo.
-            </h2>
-            <p className="hero-description">
-              Find your duo or round out your squad. Connect with players who
-              share your pace, your goals, and your love for the game.
-            </p>
-            <div className="hero-actions">
-              <button
-                className="button button-primary"
-                type="button"
-                disabled
-                aria-describedby="hero-availability"
-              >
-                Find players
-                <Icon name="arrow" />
-              </button>
-              <button
-                className="button button-secondary"
-                type="button"
-                disabled
-                aria-describedby="hero-availability"
-              >
-                Create profile
-              </button>
-            </div>
-            <p id="hero-availability" className="hero-note">
-              Player discovery and profiles are coming soon.
-            </p>
-          </div>
-          <div className="duo-art" aria-hidden="true">
-            <div className="duo-art-orbit" />
-            <span className="duo-tile tile-back">
-              <Icon name="users" />
-            </span>
-            <span className="duo-tile tile-front">
-              <Icon name="duo" />
-            </span>
-            <span className="duo-art-label">BETTER TOGETHER</span>
-          </div>
-        </section>
-        <section className="feature-grid" aria-label="Coming to FinDuo">
-          {[
-            {
-              icon: "users",
-              title: "Your kind of teammates",
-              text: "Find players who fit your playstyle and make every session count.",
-            },
-            {
-              icon: "grid",
-              title: "More than a username",
-              text: "Share your main games, favorite roles, and what you bring to the squad.",
-            },
-            {
-              icon: "chat",
-              title: "From matched to queued",
-              text: "Plan your next session and keep the conversation going.",
-            },
-          ].map((item) => (
-            <article className="feature-card glass-panel" key={item.title}>
-              <div className="feature-top">
-                <span className="section-icon">
-                  <Icon name={item.icon} />
-                </span>
-                <span className="soon-tag">Coming soon</span>
-              </div>
-              <h3>{item.title}</h3>
-              <p>{item.text}</p>
-            </article>
-          ))}
-        </section>
       </main>
     </div>
   );

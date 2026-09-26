@@ -74,6 +74,20 @@ test("sign-out waits for Neon and rejects service failures", async () => {
   await assert.rejects(createAuthActions({ signOut: async () => ({ error: { status: 500 } }) }).signOut(), AuthActionError);
 });
 
+test("display name updates are trimmed and blank names never reach Neon", async () => {
+  let payload;
+  const actions = createAuthActions({ updateUser: async (input) => {
+    payload = input;
+    return { data: { status: true }, error: null };
+  } });
+  await actions.updateDisplayName("  Ember  ");
+  assert.deepEqual(payload, { name: "Ember" });
+  await assert.rejects(
+    createAuthActions({ updateUser: () => assert.fail("Network must not be called") }).updateDisplayName("   "),
+    /display name/,
+  );
+});
+
 test("missing configuration fails safely", async () => {
   await assert.rejects(createAuthActions(null).signIn(signup), /not configured/);
 });
