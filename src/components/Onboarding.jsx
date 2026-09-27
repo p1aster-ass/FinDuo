@@ -43,7 +43,7 @@ export default function Onboarding({ user, initialProfile, onComplete }) {
           </h1>
           <p>
             {user?.displayName ? `Welcome in, ${user.displayName}! ` : ""}
-            Tell us what you play and how you play it. Five quick steps.
+            Tell us what you play and how you play each game.
           </p>
         </div>
         <ProfileForm

@@ -68,6 +68,27 @@
   display: grid;
   gap: 1.4rem;
 }
+.game-profile-list {
+  display: grid;
+  gap: 1.25rem;
+}
+.game-profile-card {
+  min-width: 0;
+  margin: 0;
+  padding: 1rem;
+  border: var(--outline);
+  border-radius: var(--radius-md);
+}
+.game-profile-card legend {
+  padding-inline: 0.4rem;
+  font-weight: 800;
+}
+.game-profile-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
 .ob-section {
   padding: clamp(1.25rem, 3vw, 2rem);
   border-radius: 1.6rem;

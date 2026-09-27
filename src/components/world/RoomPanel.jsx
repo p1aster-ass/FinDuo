@@ -68,7 +68,7 @@ export default function RoomPanel({
                     <span className="room-person-copy">
                       <span className="room-person-name">{player.name}</span>
                       <span className="room-person-meta">
-                        {[player.rank, REGION_BY_ID[player.region]?.label]
+                        {[player.rank, REGION_BY_ID[player.region]?.label ?? player.region]
                           .filter(Boolean)
                           .join(" · ")}
                       </span>

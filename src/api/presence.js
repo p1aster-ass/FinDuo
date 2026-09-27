@@ -1,10 +1,13 @@
 import { DataApiError } from "./dataApi.js";
+import { projectGameProfile } from "../lib/gameProfiles.js";
+import { GAME_PROFILE_EMBED, withGameProfiles } from "./userGames.js";
 
 // A player counts as online if seen within this window (see db/presence.sql).
 export const ONLINE_WINDOW_MINUTES = 5;
 
 const COLUMNS =
-  "user_id,display_name,username,region,rank,games,comm_styles,roles,availability,bio";
+  "user_id,display_name,username,region,rank,games,comm_styles,roles,availability,bio" +
+  GAME_PROFILE_EMBED;
 
 // 42703: the last_seen_at column doesn't exist yet. PGRST202: the
 // touch_presence function doesn't exist yet. Both mean db/presence.sql
@@ -16,11 +19,11 @@ function isPresenceMissing(error) {
   );
 }
 
-export function toPlayer(row, now = Date.now()) {
+export function toPlayer(row, now = Date.now(), game) {
   const seen = row.last_seen_at ? Date.parse(row.last_seen_at) : null;
   const minutes =
     seen === null ? null : Math.max(0, Math.round((now - seen) / 60_000));
-  return {
+  const player = {
     id: row.user_id,
     name: row.display_name || row.username || "Player",
     username: row.username || "",
@@ -34,11 +37,15 @@ export function toPlayer(row, now = Date.now()) {
     online: minutes !== null && minutes <= ONLINE_WINDOW_MINUTES,
     lastSeen: minutes,
   };
+  return Array.isArray(row.gameProfiles)
+    ? projectGameProfile({ ...player, gameProfiles: row.gameProfiles }, game)
+    : player;
 }
 
 const inList = (values) => `{${values.map(encodeURIComponent).join(",")}}`;
 
 export function createPresenceApi(request) {
+  const readProfiles = withGameProfiles(request);
   return {
     // Marks the signed-in player as online. Returns false (instead of
     // throwing) when presence isn't set up in the database yet.
@@ -63,7 +70,7 @@ export function createPresenceApi(request) {
         now - ONLINE_WINDOW_MINUTES * 60_000,
       ).toISOString();
       try {
-        const rows = await request(
+        const rows = await readProfiles(
           `${base}&select=${COLUMNS},last_seen_at` +
             `&last_seen_at=gte.${encodeURIComponent(since)}` +
             `&order=last_seen_at.desc`,
@@ -74,7 +81,7 @@ export function createPresenceApi(request) {
         };
       } catch (error) {
         if (!isPresenceMissing(error)) throw error;
-        const rows = await request(
+        const rows = await readProfiles(
           `${base}&select=${COLUMNS}&order=updated_at.desc`,
         );
         return {

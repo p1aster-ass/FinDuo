@@ -1,5 +1,7 @@
 import { DataApiError, isMissingTable } from "./dataApi.js";
 import { normalizeAvatar } from "../data/avatar.js";
+import { normalizeGameProfile } from "../lib/gameProfiles.js";
+import { gameInput } from "./userGames.js";
 
 // App field -> column in the live public.profiles table (user_id uuid,
 // display_name, username, avatar_url, region, bio, games, rank, comm_styles,
@@ -69,7 +71,7 @@ function isMissingAvatar(error) {
 // `stored` is false when the profiles table doesn't exist on this branch;
 // `exists` says whether the signed-in user already has a row;
 // `avatarStored` is false until the avatar column exists.
-export function createProfileApi(request) {
+export function createProfileApi(request, { gameApi = null } = {}) {
   let avatarColumn = true;
 
   // Runs `attempt(withAvatar)`, retrying once without the avatar column if
@@ -93,8 +95,26 @@ export function createProfileApi(request) {
           ),
         );
         const base = { stored: true, avatarStored: avatarColumn };
+        let gameProfiles;
+        if (gameApi) {
+          try {
+            gameProfiles = await gameApi.load(userId);
+            base.gameProfilesStored = true;
+          } catch (error) {
+            if (!isMissingTable(error)) throw error;
+            base.gameProfilesStored = false;
+          }
+        }
+        const profile = rows?.[0] ? fromRow(rows[0]) : null;
         return rows?.[0]
-          ? { ...base, exists: true, profile: fromRow(rows[0]) }
+          ? {
+              ...base,
+              exists: true,
+              profile:
+                gameProfiles === undefined
+                  ? profile
+                  : normalizeGameProfile({ ...profile, gameProfiles }),
+            }
           : { ...base, exists: false, profile: null };
       } catch (error) {
         if (isMissingTable(error)) {
@@ -112,6 +132,9 @@ export function createProfileApi(request) {
     // Optional fields get empty values in case their columns are NOT NULL.
     // display_name mirrors the Neon Auth name so other players can see it.
     async create(userId, displayName, profile) {
+      if (gameApi && Array.isArray(profile.gameProfiles)) {
+        return saveGames(userId, displayName, profile);
+      }
       await withAvatarFallback((withAvatar) =>
         request("profiles", {
           method: "POST",
@@ -132,6 +155,9 @@ export function createProfileApi(request) {
     // Reads back the row so an update that row-level security silently
     // filtered out (0 rows changed) is reported instead of looking saved.
     async update(userId, displayName, profile) {
+      if (gameApi && Array.isArray(profile.gameProfiles)) {
+        return saveGames(userId, displayName, profile);
+      }
       const rows = await withAvatarFallback((withAvatar) =>
         request(`profiles?${byUser(userId)}&select=user_id`, {
           method: "PATCH",
@@ -149,4 +175,24 @@ export function createProfileApi(request) {
       }
     },
   };
+
+  async function saveGames(userId, displayName, profile) {
+    try {
+      const row = toRow(displayName, normalizeGameProfile(profile), true);
+      // Membership is maintained transactionally by user_games, not a second
+      // writable copy of the game's fields in p_profile.
+      delete row.games;
+      await request("rpc/save_player_profile", {
+        method: "POST",
+        body: {
+          p_user_id: userId,
+          p_profile: row,
+          p_games: profile.gameProfiles.map((entry) => gameInput(entry)),
+        },
+      });
+    } catch (error) {
+      // A failed atomic save must never fall back to a partial legacy save.
+      throw explain(error);
+    }
+  }
 }

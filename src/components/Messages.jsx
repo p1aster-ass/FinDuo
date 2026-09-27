@@ -3,6 +3,7 @@ import Icon from "./Icon.jsx";
 import PlayerAvatar from "./PlayerAvatar.jsx";
 import { GAME_BY_ID, REGION_BY_ID } from "../data/options.js";
 import NotLiveYet from "./NotLiveYet.jsx";
+import { gameProfilesFor } from "../lib/gameProfiles.js";
 
 const timeFormat = new Intl.DateTimeFormat(undefined, {
   hour: "numeric",
@@ -170,7 +171,9 @@ function Thread({
   const [draft, setDraft] = useState("");
   const [planning, setPlanning] = useState(false);
   const listRef = useRef(null);
-  const sharedGames = player.games.filter((id) => profile.games.includes(id));
+  const myGames = gameProfilesFor(profile).map((entry) => entry.game);
+  const playerGames = gameProfilesFor(player).map((entry) => entry.game);
+  const sharedGames = playerGames.filter((id) => myGames.includes(id));
 
   useEffect(() => {
     const list = listRef.current;
@@ -200,7 +203,9 @@ function Thread({
         <div className="chat-thread-title">
           <h2 id="chat-thread-title">{player.name}</h2>
           <p>
-            {player.rank} · {REGION_BY_ID[player.region].label}
+            {Array.isArray(player.gameProfiles)
+              ? playerGames.map((id) => GAME_BY_ID[id]?.name ?? id).join(" · ")
+              : [player.rank, REGION_BY_ID[player.region]?.label ?? player.region].filter(Boolean).join(" · ")}
             {player.online ? " · Online" : ""}
           </p>
         </div>
@@ -237,7 +242,7 @@ function Thread({
 
       {planning && (
         <SessionPlanner
-          games={sharedGames.length ? sharedGames : player.games}
+          games={sharedGames.length ? sharedGames : playerGames}
           onCancel={() => setPlanning(false)}
           onSubmit={(session) => {
             onPlanSession(player.id, session);

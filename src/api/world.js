@@ -1,6 +1,7 @@
 import { DataApiError, isMissingTable } from "./dataApi.js";
 import { toPlayer } from "./presence.js";
 import { normalizeAvatar } from "../data/avatar.js";
+import { GAME_PROFILE_EMBED, withGameProfiles } from "./userGames.js";
 
 // Players whose position hasn't updated for this long have left.
 export const STALE_SECONDS = 15;
@@ -8,7 +9,8 @@ export const STALE_SECONDS = 15;
 export const CHAT_HISTORY_SECONDS = 120;
 
 const PROFILE_FIELDS =
-  "display_name,username,avatar,region,rank,games,comm_styles,roles,availability,bio";
+  "display_name,username,avatar,region,rank,games,comm_styles,roles,availability,bio" +
+  GAME_PROFILE_EMBED;
 
 export class WorldUnavailableError extends Error {}
 
@@ -59,11 +61,13 @@ export function toPeer(row, now = Date.now()) {
     player: toPlayer(
       { ...profile, user_id: row.user_id, last_seen_at: row.updated_at },
       now,
+      row.room,
     ),
   };
 }
 
 export function createWorldApi(request) {
+  const readProfiles = withGameProfiles(request);
   return {
     // Upserts where the signed-in player stands.
     move(userId, { room, x, z, facing, emote, emoteAt }) {
@@ -91,7 +95,7 @@ export function createWorldApi(request) {
     // Everyone else in `room`, with their avatar and profile.
     async peers(room, userId, now = Date.now()) {
       const rows = await guard(
-        request(
+        readProfiles(
           `world_positions?room=${eq(room)}&user_id=neq.${encodeURIComponent(userId)}` +
             `&updated_at=gte.${since(STALE_SECONDS, now)}` +
             `&select=user_id,room,x,z,facing,emote,emote_at,updated_at,profile:profiles(${PROFILE_FIELDS})` +
@@ -185,11 +189,18 @@ export function createWorldApi(request) {
           prefer: "return=representation",
         }),
       );
-      if (rows?.length !== 1 || rows[0].id !== inviteId || rows[0].status !== status) {
-        throw new DataApiError("This invitation could not be updated. It may have already been answered.", {
-          status: 409,
-          code: "INVITE_NOT_UPDATED",
-        });
+      if (
+        rows?.length !== 1 ||
+        rows[0].id !== inviteId ||
+        rows[0].status !== status
+      ) {
+        throw new DataApiError(
+          "This invitation could not be updated. It may have already been answered.",
+          {
+            status: 409,
+            code: "INVITE_NOT_UPDATED",
+          },
+        );
       }
       return true;
     },

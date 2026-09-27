@@ -4,6 +4,14 @@ import Icon from "./Icon.jsx";
 import Tilt from "./Tilt.jsx";
 import { COMM_STYLES, GAMES, RANKS, REGIONS } from "../data/options.js";
 import {
+  createGameDrafts,
+  editGameDraft,
+  toggleGameDraft,
+  gameDraftPayload,
+  gameRankError,
+} from "../lib/gameProfiles.js";
+import GameProfileFields from "./GameProfileFields.jsx";
+import {
   normalizeUsername,
   suggestUsername,
   USERNAME_MAX,
@@ -124,9 +132,17 @@ export default function ProfileForm({
   const [username, setUsername] = useState(
     () => initialProfile?.username || suggestUsername(suggestedName),
   );
-  const [games, setGames] = useState(initialProfile?.games ?? []);
+  const [legacyGames, setLegacyGames] = useState(initialProfile?.games ?? []);
+  const perGame = Array.isArray(initialProfile?.gameProfiles);
+  const [gameDrafts, setGameDrafts] = useState(() =>
+    createGameDrafts(initialProfile),
+  );
+  const games = perGame ? gameDrafts.map((entry) => entry.game) : legacyGames;
   const [region, setRegion] = useState(initialProfile?.region ?? "");
   const [rank, setRank] = useState(initialProfile?.rank ?? "");
+  function editGame(game, changes) {
+    setGameDrafts((current) => editGameDraft(current, game, changes));
+  }
   const [comms, setComms] = useState(initialProfile?.commStyles ?? []);
   const [showErrors, setShowErrors] = useState(false);
 
@@ -143,8 +159,22 @@ export default function ProfileForm({
       done: !usernameProblem && !rejected,
     },
     { key: "games", label: "Games", done: games.length > 0 },
-    { key: "region", label: "Region", done: Boolean(region) },
-    { key: "rank", label: "Rank", done: Boolean(rank) },
+    ...(perGame
+      ? [
+          {
+            key: "game-details",
+            label: "Game profiles",
+            done:
+              gameDrafts.length > 0 &&
+              gameDrafts.every(
+                (entry) => !gameRankError(entry) && entry.region.trim(),
+              ),
+          },
+        ]
+      : [
+          { key: "region", label: "Region", done: Boolean(region) },
+          { key: "rank", label: "Rank", done: Boolean(rank) },
+        ]),
     { key: "comms", label: "Comms", done: comms.length > 0 },
   ];
   const completed = steps.filter((step) => step.done).length;
@@ -159,7 +189,11 @@ export default function ProfileForm({
     showErrors && !steps.find((step) => step.key === key).done;
 
   function toggleGame(id) {
-    setGames((current) =>
+    if (perGame) {
+      setGameDrafts((current) => toggleGameDraft(current, id));
+      return;
+    }
+    setLegacyGames((current) =>
       current.includes(id)
         ? current.filter((game) => game !== id)
         : [...current, id],
@@ -181,9 +215,10 @@ export default function ProfileForm({
     onSubmit({
       username: normalizeUsername(username),
       games,
-      region,
-      rank,
       commStyles: comms,
+      ...(perGame
+        ? { gameProfiles: gameDraftPayload(gameDrafts) }
+        : { region, rank }),
     });
   }
 
@@ -201,6 +236,7 @@ export default function ProfileForm({
           <motion.ol
             variants={fadeUp}
             className="ob-progress"
+            style={{ gridTemplateColumns: `repeat(${steps.length}, 1fr)` }}
             aria-label={`${completed} of ${steps.length} sections complete`}
           >
             {steps.map((step) => (
@@ -303,106 +339,156 @@ export default function ProfileForm({
           </motion.ul>
         </Section>
 
-        <Section
-          id="region"
-          index={3}
-          title="Server region"
-          hint="Where you queue most. We match you with players on low-ping servers."
-          done={Boolean(region)}
-          error={errorFor("region") && "Choose your region."}
-        >
-          <motion.div
-            variants={stagger}
-            className="region-grid"
-            role="radiogroup"
-            aria-labelledby="ob-region-title"
-            aria-describedby="ob-region-hint"
+        {perGame ? (
+          <Section
+            id="game-details"
+            index={3}
+            title="Your game profiles"
+            hint="Set your rank, region, roles, and platform separately for each game."
+            done={steps.find((step) => step.key === "game-details").done}
+            error={
+              errorFor("game-details") &&
+              "Add a rank and region for each selected game."
+            }
           >
-            {REGIONS.map((option) => (
-              <motion.label
-                key={option.id}
-                variants={fadeUp}
-                className="choice region-option"
-              >
-                <input
-                  className="visually-hidden"
-                  type="radio"
-                  name="region"
-                  value={option.id}
-                  checked={region === option.id}
-                  onChange={() => setRegion(option.id)}
+            <div className="game-profile-list">
+              {gameDrafts.map((draft) => (
+                <GameProfileFields
+                  key={draft.game}
+                  draft={draft}
+                  onChange={(changes) => editGame(draft.game, changes)}
+                  onRemove={() => toggleGame(draft.game)}
+                  showErrors={showErrors}
+                  disabled={submitting}
                 />
-                <Tilt
-                  as={motion.span}
-                  {...cardPress}
-                  className="choice-body region-body"
-                >
-                  <span className="region-icon">
-                    <Icon name="globe" />
-                  </span>
-                  <span className="region-label">{option.label}</span>
-                  <span className="region-detail">{option.detail}</span>
-                </Tilt>
-              </motion.label>
-            ))}
-          </motion.div>
-        </Section>
+              ))}
+            </div>
+            {!gameDrafts.length && (
+              <p>Select a game above to add its profile.</p>
+            )}
+          </Section>
+        ) : (
+          <>
+            <p className="ob-footnote" role="status">
+              This server uses legacy shared gaming preferences. Separate game
+              profiles are available on the updated test server.
+            </p>
+            <Section
+              id="region"
+              index={3}
+              title="Server region"
+              hint="Where you queue most. We match you with players on low-ping servers."
+              done={Boolean(region)}
+              error={
+                errorFor("region") &&
+                (perGame
+                  ? "Choose a region for each selected game."
+                  : "Choose your region.")
+              }
+            >
+              <motion.div
+                variants={stagger}
+                className="region-grid"
+                role="radiogroup"
+                aria-labelledby="ob-region-title"
+                aria-describedby="ob-region-hint"
+              >
+                {REGIONS.map((option) => (
+                  <motion.label
+                    key={option.id}
+                    variants={fadeUp}
+                    className="choice region-option"
+                  >
+                    <input
+                      className="visually-hidden"
+                      type="radio"
+                      name="region"
+                      value={option.id}
+                      checked={region === option.id}
+                      onChange={() => setRegion(option.id)}
+                    />
+                    <Tilt
+                      as={motion.span}
+                      {...cardPress}
+                      className="choice-body region-body"
+                    >
+                      <span className="region-icon">
+                        <Icon name="globe" />
+                      </span>
+                      <span className="region-label">{option.label}</span>
+                      <span className="region-detail">{option.detail}</span>
+                    </Tilt>
+                  </motion.label>
+                ))}
+              </motion.div>
+            </Section>
 
-        <Section
-          id="rank"
-          index={4}
-          title="Current rank"
-          hint="Your usual skill tier. You can change it later."
-          meta={rank ? `Tier ${rankIndex + 1} of ${RANKS.length}` : null}
-          done={Boolean(rank)}
-          error={errorFor("rank") && "Choose your current rank."}
-        >
-          <motion.div
-            variants={stagger}
-            className="rank-grid"
-            role="radiogroup"
-            aria-labelledby="ob-rank-title"
-            aria-describedby="ob-rank-hint"
-          >
-            {RANKS.map((tier, index) => (
-              <motion.label
-                key={tier}
-                variants={fadeUp}
-                className={`choice rank-option${index < rankIndex ? " is-below" : ""}`}
-                style={{ "--tier": (index + 1) / RANKS.length }}
+            <Section
+              id="rank"
+              index={4}
+              title="Current rank"
+              hint="Your usual skill tier. You can change it later."
+              meta={
+                rankIndex >= 0
+                  ? `Tier ${rankIndex + 1} of ${RANKS.length}`
+                  : null
+              }
+              done={Boolean(rank)}
+              error={
+                errorFor("rank") &&
+                (perGame
+                  ? "Choose a rank for each selected game."
+                  : "Choose your current rank.")
+              }
+            >
+              <motion.div
+                variants={stagger}
+                className="rank-grid"
+                role="radiogroup"
+                aria-labelledby="ob-rank-title"
+                aria-describedby="ob-rank-hint"
               >
-                <input
-                  className="visually-hidden"
-                  type="radio"
-                  name="rank"
-                  value={tier}
-                  checked={rank === tier}
-                  onChange={() => setRank(tier)}
+                {RANKS.map((tier, index) => (
+                  <motion.label
+                    key={tier}
+                    variants={fadeUp}
+                    className={`choice rank-option${index < rankIndex ? " is-below" : ""}`}
+                    style={{ "--tier": (index + 1) / RANKS.length }}
+                  >
+                    <input
+                      className="visually-hidden"
+                      type="radio"
+                      name="rank"
+                      value={tier}
+                      checked={rank === tier}
+                      onChange={() => setRank(tier)}
+                    />
+                    <Tilt
+                      as={motion.span}
+                      max={14}
+                      {...tilePress}
+                      className="choice-body rank-body"
+                    >
+                      <RankEmblem level={index + 1} />
+                      <span className="rank-name">{tier}</span>
+                    </Tilt>
+                  </motion.label>
+                ))}
+              </motion.div>
+              <div className="rank-track" aria-hidden="true">
+                <span
+                  style={{
+                    width: `${rank ? ((rankIndex + 1) / RANKS.length) * 100 : 0}%`,
+                  }}
                 />
-                <Tilt
-                  as={motion.span}
-                  max={14}
-                  {...tilePress}
-                  className="choice-body rank-body"
-                >
-                  <RankEmblem level={index + 1} />
-                  <span className="rank-name">{tier}</span>
-                </Tilt>
-              </motion.label>
-            ))}
-          </motion.div>
-          <div className="rank-track" aria-hidden="true">
-            <span
-              style={{
-                width: `${rank ? ((rankIndex + 1) / RANKS.length) * 100 : 0}%`,
-              }}
-            />
-          </div>
-        </Section>
+              </div>
+            </Section>
+          </>
+        )}
 
         <Section
           id="comms"
-          index={5}
+          index={steps.length}
           title="Preferred comm style"
           hint="How you like to talk (or not) in-game. Pick any that apply."
           done={comms.length > 0}

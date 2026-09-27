@@ -12,6 +12,7 @@ import {
   ROLES,
 } from "../data/options.js";
 import { profileStrength } from "../lib/match.js";
+import GameProfileSummary from "./GameProfileSummary.jsx";
 
 const BIO_LIMIT = 160;
 
@@ -75,7 +76,7 @@ function ProfileEditor({
         ...gaming,
         displayName: name,
         bio: bio.trim(),
-        roles,
+        ...(!Array.isArray(profile.gameProfiles) && { roles }),
         availability,
       });
     } catch (error) {
@@ -146,22 +147,24 @@ function ProfileEditor({
               {bio.length}/{BIO_LIMIT}
             </p>
           </div>
-          <fieldset className="pill-field">
-            <legend>Favorite roles</legend>
-            <div className="comm-list">
-              {ROLES.map((role) => (
-                <button
-                  key={role}
-                  type="button"
-                  className="comm-pill"
-                  aria-pressed={roles.includes(role)}
-                  onClick={() => setRoles((current) => toggle(current, role))}
-                >
-                  {role}
-                </button>
-              ))}
-            </div>
-          </fieldset>
+          {!profile.gameProfiles && (
+            <fieldset className="pill-field">
+              <legend>Favorite roles</legend>
+              <div className="comm-list">
+                {ROLES.map((role) => (
+                  <button
+                    key={role}
+                    type="button"
+                    className="comm-pill"
+                    aria-pressed={roles.includes(role)}
+                    onClick={() => setRoles((current) => toggle(current, role))}
+                  >
+                    {role}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+          )}
           <fieldset className="pill-field">
             <legend>When you play</legend>
             <div className="comm-list">
@@ -196,6 +199,7 @@ export default function Profile({
   const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState(false);
   const strength = profileStrength(profile);
+  const perGame = Array.isArray(profile.gameProfiles);
   const rankLevel = RANKS.indexOf(profile.rank) + 1;
 
   function openEditor() {
@@ -261,16 +265,16 @@ export default function Profile({
               <p className="profile-username">@{profile.username}</p>
             )}
           </div>
-          <div className="player-meta">
+          {!perGame && <div className="player-meta">
             <span className="meta-chip">
-              <RankEmblem level={rankLevel} />
+              {rankLevel > 0 && <RankEmblem level={rankLevel} />}
               {profile.rank}
             </span>
             <span className="meta-chip">
               <Icon name="globe" />
-              {REGION_BY_ID[profile.region]?.detail}
+              {REGION_BY_ID[profile.region]?.detail ?? profile.region}
             </span>
-          </div>
+          </div>}
           <p className={profile.bio ? "profile-bio" : "profile-bio is-empty"}>
             {profile.bio ||
               "No bio yet. Tell other players what you bring to the squad."}
@@ -330,21 +334,23 @@ export default function Profile({
 
       <div className="detail-grid">
         <DetailCard title="Games" icon="gamepad">
-          <ul className="profile-games">
+          {perGame ? <GameProfileSummary entries={profile.gameProfiles} /> : <ul className="profile-games">
             {profile.games.map((id) => (
               <li key={id}>
-                <span className="profile-game-tag">{GAME_BY_ID[id].tag}</span>
+                <span className="profile-game-tag">
+                  {GAME_BY_ID[id]?.tag ?? id}
+                </span>
                 <span>
                   <span className="profile-game-name">
-                    {GAME_BY_ID[id].name}
+                    {GAME_BY_ID[id]?.name ?? id}
                   </span>
                   <span className="profile-game-genre">
-                    {GAME_BY_ID[id].genre}
+                    {GAME_BY_ID[id]?.genre}
                   </span>
                 </span>
               </li>
             ))}
-          </ul>
+          </ul>}
         </DetailCard>
         <DetailCard title="Comm style" icon="mic">
           <ul className="comm-inline">
@@ -356,7 +362,7 @@ export default function Profile({
             ))}
           </ul>
         </DetailCard>
-        <DetailCard
+        {!perGame && <DetailCard
           title="Favorite roles"
           icon="trophy"
           empty="No roles picked yet."
@@ -370,7 +376,7 @@ export default function Profile({
               ))}
             </ul>
           )}
-        </DetailCard>
+        </DetailCard>}
         <DetailCard
           title="When you play"
           icon="calendar"

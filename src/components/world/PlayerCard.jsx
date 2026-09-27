@@ -2,6 +2,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import Icon from "../Icon.jsx";
 import { RankEmblem } from "../ProfileForm.jsx";
+import GameProfileSummary from "../GameProfileSummary.jsx";
 import {
   COMM_BY_ID,
   GAME_BY_ID,
@@ -23,6 +24,7 @@ export default function PlayerCard({
 }) {
   const [copied, setCopied] = useState(false);
   const rankLevel = RANKS.indexOf(player.rank) + 1;
+  const perGame = Array.isArray(player.gameProfiles);
 
   async function copyHandle() {
     try {
@@ -71,10 +73,10 @@ export default function PlayerCard({
         </span>
       </header>
 
-      <div className="player-meta">
-        {rankLevel > 0 && (
+      {!perGame && <div className="player-meta">
+        {player.rank && (
           <span className="meta-chip">
-            <RankEmblem level={rankLevel} />
+            {rankLevel > 0 && <RankEmblem level={rankLevel} />}
             {player.rank}
           </span>
         )}
@@ -84,11 +86,13 @@ export default function PlayerCard({
             {REGION_BY_ID[player.region]?.label ?? player.region}
           </span>
         )}
-      </div>
+      </div>}
+
+      {perGame && <GameProfileSummary entries={player.gameProfiles} />}
 
       {player.bio && <p className="player-bio">{player.bio}</p>}
 
-      {player.games.length > 0 && (
+      {!perGame && player.games.length > 0 && (
         <ul className="tag-list" aria-label="Games">
           {player.games
             .filter((id) => GAME_BY_ID[id])

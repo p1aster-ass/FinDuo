@@ -1,5 +1,9 @@
 # Multiplayer security verification
 
+For the additive per-game profile migration, tests, API, and rollout notes,
+see [USER_GAMES.md](../USER_GAMES.md). Its verification runner also reruns
+the multiplayer suites below against the migrated disposable branch.
+
 Install `db/migrations/2026-09-26_multiplayer_baseline.sql` on a disposable
 child of production, then refresh that branch's Neon Data API schema cache.
 The migration requires the existing Neon Auth, profiles, and gaming columns.

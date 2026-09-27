@@ -77,6 +77,71 @@ export const RANKS = [
   "Immortal",
 ];
 
+// Per-game form options. RANKS above is retained only for legacy profile
+// compatibility. Games without a configured ladder use a free-text rank.
+export const GAME_PROFILE_OPTIONS = {
+  valorant: {
+    rankType: "select",
+    ranks: [
+      "Iron",
+      "Bronze",
+      "Silver",
+      "Gold",
+      "Platinum",
+      "Diamond",
+      "Ascendant",
+      "Immortal",
+      "Radiant",
+      "Unranked",
+    ],
+    regions: REGIONS,
+    rolesPlaceholder: "Controller, Duelist, Initiator, Sentinel",
+  },
+  lol: {
+    rankType: "select",
+    ranks: [
+      "Iron",
+      "Bronze",
+      "Silver",
+      "Gold",
+      "Platinum",
+      "Emerald",
+      "Diamond",
+      "Master",
+      "Grandmaster",
+      "Challenger",
+      "Unranked",
+    ],
+    regions: [
+      { id: "euw", label: "EUW" },
+      { id: "eune", label: "EUNE" },
+      { id: "na", label: "NA" },
+      { id: "kr", label: "KR" },
+      { id: "jp", label: "JP" },
+      { id: "br", label: "BR" },
+      { id: "lan", label: "LAN" },
+      { id: "las", label: "LAS" },
+      { id: "oce", label: "OCE" },
+    ],
+    rolesPlaceholder: "Top, Jungle, Mid, ADC, Support",
+  },
+  cs2: {
+    rankType: "rating",
+    rankLabel: "Premier rating",
+    rankPlaceholder: "15000 or Unranked",
+    regions: REGIONS,
+    rolesPlaceholder: "AWPer, Entry fragger, Support, IGL, Lurker",
+  },
+};
+
+// Unsupported ladders deliberately accept game-specific text, never Valorant
+// tiers. Extend GAME_PROFILE_OPTIONS when a game's ladder is configured.
+export const DEFAULT_GAME_PROFILE_OPTIONS = {
+  rankType: "text",
+  rankLabel: "Rank / rating",
+  regions: REGIONS,
+};
+
 // Opposing styles can't both be picked; choosing one drops the other.
 export const COMM_STYLES = [
   { id: "mic", label: "Mic Required", icon: "mic", excludes: "ping" },

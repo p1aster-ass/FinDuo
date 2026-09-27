@@ -1,18 +1,34 @@
-import { COMM_BY_ID, GAME_BY_ID, RANKS } from "../data/options.js";
+import { COMM_BY_ID, GAME_BY_ID, GAME_PROFILE_OPTIONS, RANKS } from "../data/options.js";
+import { gameProfilesFor, projectGameProfile } from "./gameProfiles.js";
 
 // Scores out of 100: games 40, region 25, rank 20, comm style 15.
-export function scoreMatch(profile, player) {
-  const sharedGames = player.games.filter((game) =>
-    profile.games.includes(game),
-  );
+export function scoreMatch(profile, player, game) {
+  const myGames = gameProfilesFor(profile).map((entry) => entry.game);
+  const sharedGames = gameProfilesFor(player).map((entry) => entry.game)
+    .filter((game) => myGames.includes(game));
   const gameScore = sharedGames.length
     ? 25 + Math.min(sharedGames.length - 1, 2) * 7.5
     : 0;
-  const sameRegion = player.region === profile.region;
-  const rankGap = Math.abs(
-    RANKS.indexOf(player.rank) - RANKS.indexOf(profile.rank),
+  const comparedGame = sharedGames.includes(game) ? game : sharedGames[0];
+  const mine = projectGameProfile(profile, comparedGame);
+  const theirs = projectGameProfile(player, comparedGame);
+  const sameRegion = Boolean(
+    comparedGame && mine.region && mine.region === theirs.region,
   );
-  const rankScore = Math.max(0, 20 - rankGap * 7);
+  const ranks = GAME_PROFILE_OPTIONS[comparedGame]?.ranks ??
+    (!profile.gameProfiles && !player.gameProfiles ? RANKS : []);
+  const mineIndex = ranks.indexOf(mine.rank),
+    theirIndex = ranks.indexOf(theirs.rank);
+  // Unknown game ratings are not ordered on the old shared tier ladder.
+  const rankGap =
+    !comparedGame || !mine.rank || !theirs.rank
+      ? null
+      : mine.rank === theirs.rank
+        ? 0
+        : mineIndex >= 0 && theirIndex >= 0
+          ? Math.abs(mineIndex - theirIndex)
+          : null;
+  const rankScore = rankGap === null ? 0 : Math.max(0, 20 - rankGap * 7);
   const sharedComms = player.comms.filter((style) =>
     profile.commStyles.includes(style),
   );
@@ -28,7 +44,7 @@ export function scoreMatch(profile, player) {
   if (sharedGames.length) {
     reasons.push(
       sharedGames.length === 1
-        ? `Plays ${GAME_BY_ID[sharedGames[0]].name}`
+        ? `Plays ${GAME_BY_ID[sharedGames[0]]?.name ?? sharedGames[0]}`
         : `${sharedGames.length} games in common`,
     );
   }
@@ -63,7 +79,7 @@ export function profileStrength(profile) {
   const extras = [
     { done: Boolean(profile.bio?.trim()), weight: 15, tip: "Add a short bio" },
     {
-      done: profile.roles?.length > 0,
+      done: gameProfilesFor(profile).some((entry) => entry.roles?.length > 0),
       weight: 15,
       tip: "Pick your favorite roles",
     },
@@ -83,11 +99,11 @@ export function profileStrength(profile) {
 
 // Onboarding is done once the username and four required sections are filled in.
 export function isProfileComplete(profile) {
+  const games = gameProfilesFor(profile);
   return Boolean(
     profile?.username &&
-    profile.games?.length &&
-    profile.region &&
-    profile.rank &&
+    games.length &&
+    games.every((entry) => entry.region && entry.rank) &&
     profile.commStyles?.length,
   );
 }

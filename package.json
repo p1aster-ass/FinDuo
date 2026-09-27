@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:user-games": "vite --mode user-games --host localhost --port 5180 --strictPort",
     "build": "vite build",
     "lint": "eslint .",
     "test": "node --test \"src/**/*.test.js\"",

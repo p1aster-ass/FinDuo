@@ -30,6 +30,7 @@ import { loadBlocked, saveBlocked } from "./lib/blocks.js";
 import { latestBubbles } from "./lib/chat.js";
 import { answerAndJoin } from "./lib/privateInvites.js";
 import { isProfileComplete, scoreMatch } from "./lib/match.js";
+import { normalizeGameProfile } from "./lib/gameProfiles.js";
 import { useMediaQuery } from "./lib/useMediaQuery.js";
 import { useTheme } from "./lib/useTheme.js";
 import { lobbySpawn, ROOM_SPAWN } from "./three/spawns.js";
@@ -96,11 +97,17 @@ function App({ auth }) {
   );
 
   async function saveProfile({ displayName: name, ...changes }) {
-    const next = { ...record.profile, ...changes };
+    const merged = { ...record.profile, ...changes };
+    const next = normalizeGameProfile(merged);
     if (record.stored) {
       const shown = name ?? auth.user.displayName;
       if (record.exists) await profileApi.update(userId, shown, next);
       else await profileApi.create(userId, shown, next);
+      // Read the persisted rows before reporting success; the screen and the
+      // next editor opening must show exactly what survives a page reload.
+      const saved = await profileApi.load(userId);
+      setRecord((current) => ({ ...current, ...saved, error: "" }));
+      return;
     }
     setRecord((current) => ({
       ...current,
@@ -178,7 +185,7 @@ function App({ auth }) {
       peer,
       player: peer.player,
       avatar: peer.avatar,
-      match: scoreMatch(profile, peer.player),
+      match: scoreMatch(profile, peer.player, room),
     }))
     .sort((a, b) => b.match.score - a.match.score);
   const messages = mp.messages.filter((m) => !blocked.has(m.userId));
@@ -336,7 +343,11 @@ function App({ auth }) {
       {phase === "onboarding" ? (
         <Onboarding
           user={auth.user}
-          initialProfile={profile}
+          initialProfile={
+            record.gameProfilesStored
+              ? { ...profile, gameProfiles: profile?.gameProfiles ?? [] }
+              : profile
+          }
           onComplete={saveProfile}
         />
       ) : (

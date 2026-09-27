@@ -4,6 +4,7 @@ import { createPresenceApi } from "./presence.js";
 import { createProfileApi } from "./profiles.js";
 import { createWorldApi } from "./world.js";
 import { getDataApiToken } from "./token.js";
+import { createUserGamesApi } from "./userGames.js";
 
 // In development, print the database's own reason for a failed request
 // (for example which row-level security policy blocked it).
@@ -20,6 +21,7 @@ const request = createDataApi({
   onError: import.meta.env.DEV ? logError : undefined,
 });
 
-export const profileApi = createProfileApi(request);
+export const userGamesApi = createUserGamesApi(request);
+export const profileApi = createProfileApi(request, { gameApi: userGamesApi });
 export const presenceApi = createPresenceApi(request);
 export const worldApi = createWorldApi(request);
